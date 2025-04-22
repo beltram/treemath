@@ -1,4 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use criterion::{AxisScale, BatchSize, BenchmarkId, Criterion, PlotConfiguration, black_box, criterion_group, criterion_main};
+use itertools::Itertools;
+use treemath::bounds::*;
 use treemath::naive::*;
 use treemath::*;
 
@@ -18,39 +20,31 @@ fn level_bench(c: &mut Criterion) {
 }
 
 mod ranges {
-    use itertools::Itertools;
+    use super::*;
 
     pub fn node_index(iter: usize) -> impl Iterator<Item = usize> {
-        const MAX: usize = usize::MAX - 1;
-        let iter = (0..=MAX).step_by(MAX / iter);
-        iter.chain(std::iter::once(MAX)).dedup()
+        let iter = (0..=NODE_INDEX_MAX).step_by(NODE_INDEX_MAX / iter);
+        iter.chain(std::iter::once(NODE_INDEX_MAX)).dedup()
     }
 }
 
-/*fn root_bench(c: &mut Criterion) {
+fn root_bench(c: &mut Criterion) {
     let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
     let mut group = c.benchmark_group("Root");
     group.plot_config(plot_config);
-    let step = LeafCount::range().count().div_euclid(ITERATIONS as usize);
-    for lc in LeafCount::range().step_by(step) {
+    let step = leaf_count_range().count().div_euclid(ITER as usize);
+    for lc in leaf_count_range().step_by(step) {
         group.bench_with_input(BenchmarkId::new("new", lc), &lc, |b, &lc| {
-            b.iter_batched(
-                || LeafCount(1 << rand::thread_rng().gen_range(0..=lc.ilog2())),
-                |lc| black_box(lc.root()),
-                BatchSize::SmallInput,
-            )
+            b.iter_batched(|| 1 << rand::random_range(0..=lc.ilog2()), |lc| black_box(root(lc)), BatchSize::SmallInput)
         });
         group.bench_with_input(BenchmarkId::new("naive", lc), &lc, |b, &lc| {
-            b.iter_batched(
-                || LeafCount(1 << rand::thread_rng().gen_range(0..=lc.ilog2())),
-                |lc| black_box(lc.root_rfc9420()),
-                BatchSize::SmallInput,
-            )
+            b.iter_batched(|| 1 << rand::random_range(0..=lc.ilog2()), |lc| black_box(root_naive(lc)), BatchSize::SmallInput)
         });
     }
     group.finish();
 }
 
+/*
 fn parent_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Parent");
     for i in NodeIndex::range(ITERATIONS) {
@@ -243,7 +237,7 @@ fn common_ancestor_bench(c: &mut Criterion) {
 criterion_group!(
     benches,
     level_bench,
-    // root_bench,
+    root_bench,
     // parent_bench,
     // sibling_bench,
     // left_right_bench,
