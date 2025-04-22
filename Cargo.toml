@@ -1,0 +1,17 @@
+[package]
+name = "treemath"
+version = "0.1.0"
+edition = "2024"
+
+[dev-dependencies]
+treemath = { path = ".", features = ["bench"] }
+criterion = "0.5"
+rand = "0.9"
+itertools = "0.14"
+
+[[bench]]
+name = "criterion"
+harness = false
+
+[features]
+bench = []
