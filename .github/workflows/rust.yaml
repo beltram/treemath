@@ -51,3 +51,17 @@ jobs:
       - run: git submodule init && git submodule update --recursive --remote
       - run: cargo test --all-features
       - run: cargo test --benches
+
+  publish:
+    # runs on tags only
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+      - name: publish
+        run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
