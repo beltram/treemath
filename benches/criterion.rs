@@ -22,8 +22,8 @@ fn level_bench(c: &mut Criterion) {
 mod ranges {
     use super::*;
 
-    pub fn node_index(iter: usize) -> impl Iterator<Item = usize> {
-        let iter = (0..=NODE_INDEX_MAX).step_by(NODE_INDEX_MAX / iter);
+    pub fn node_index(step: usize) -> impl Iterator<Item = usize> {
+        let iter = (0..=NODE_INDEX_MAX).step_by(NODE_INDEX_MAX / step);
         iter.chain(std::iter::once(NODE_INDEX_MAX)).dedup()
     }
 }
@@ -44,23 +44,14 @@ fn root_bench(c: &mut Criterion) {
     group.finish();
 }
 
-/*
 fn parent_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Parent");
-    for i in NodeIndex::range(ITERATIONS) {
+    for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
-            b.iter_batched(
-                || NodeIndex(rand::thread_rng().gen_range(0..=i.0)),
-                |idx| black_box(idx.parent(LeafCount::MAX)),
-                BatchSize::SmallInput,
-            )
+            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(parent(idx, LEAF_COUNT_MAX)), BatchSize::SmallInput)
         });
         group.bench_with_input(BenchmarkId::new("naive", i), &i, |b, &i| {
-            b.iter_batched(
-                || NodeIndex(rand::thread_rng().gen_range(0..=i.0)),
-                |idx| black_box(idx.parent_rfc9420(LeafCount::MAX)),
-                BatchSize::SmallInput,
-            )
+            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(parent_naive(idx, LEAF_COUNT_MAX)), BatchSize::SmallInput)
         });
     }
     group.finish();
@@ -68,20 +59,12 @@ fn parent_bench(c: &mut Criterion) {
 
 fn sibling_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Sibling");
-    for i in NodeIndex::range(ITERATIONS) {
+    for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
-            b.iter_batched(
-                || NodeIndex(rand::thread_rng().gen_range(0..=i.0)),
-                |idx| black_box(idx.sibling(LeafCount::MAX)),
-                BatchSize::SmallInput,
-            )
+            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(sibling(idx, LEAF_COUNT_MAX)), BatchSize::SmallInput)
         });
         group.bench_with_input(BenchmarkId::new("naive", i), &i, |b, &i| {
-            b.iter_batched(
-                || NodeIndex(rand::thread_rng().gen_range(0..=i.0)),
-                |idx| black_box(idx.sibling_rfc9420(LeafCount::MAX)),
-                BatchSize::SmallInput,
-            )
+            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(sibling_naive(idx, LEAF_COUNT_MAX)), BatchSize::SmallInput)
         });
     }
     group.finish();
@@ -89,38 +72,22 @@ fn sibling_bench(c: &mut Criterion) {
 
 fn left_right_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Left");
-    for i in NodeIndex::range(ITERATIONS) {
+    for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
-            b.iter_batched(
-                || NodeIndex(rand::thread_rng().gen_range(0..=i.0)),
-                |idx| black_box(idx.left()),
-                BatchSize::SmallInput,
-            )
+            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(left(idx)), BatchSize::SmallInput)
         });
         group.bench_with_input(BenchmarkId::new("naive", i), &i, |b, &i| {
-            b.iter_batched(
-                || NodeIndex(rand::thread_rng().gen_range(0..=i.0)),
-                |idx| black_box(idx.left_rfc9420()),
-                BatchSize::SmallInput,
-            )
+            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(left_naive(idx)), BatchSize::SmallInput)
         });
     }
     group.finish();
     let mut group = c.benchmark_group("Right");
-    for i in NodeIndex::range(ITERATIONS) {
+    for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
-            b.iter_batched(
-                || NodeIndex(rand::thread_rng().gen_range(0..=i.0)),
-                |idx| black_box(idx.right()),
-                BatchSize::SmallInput,
-            )
+            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(right(idx)), BatchSize::SmallInput)
         });
         group.bench_with_input(BenchmarkId::new("naive", i), &i, |b, &i| {
-            b.iter_batched(
-                || NodeIndex(rand::thread_rng().gen_range(0..=i.0)),
-                |idx| black_box(idx.right_rfc9420()),
-                BatchSize::SmallInput,
-            )
+            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(right_naive(idx)), BatchSize::SmallInput)
         });
     }
     group.finish();
@@ -131,37 +98,18 @@ fn direct_path_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Direct path");
     group.plot_config(plot_config);
 
-    for lc in LeafCount::range().step_by(LeafCount::BITS / ITERATIONS as usize) {
+    for lc in leaf_count_range().step_by(LEAF_COUNT_BITS / ITER) {
         group.bench_with_input(BenchmarkId::new("new", lc), &lc, |b, &lc| {
             b.iter_batched(
-                || {
-                    NodeIndex(rand::thread_rng().gen_range(0..=lc.0));
-                    let idx = rand::thread_rng().gen_range(0u32..(lc.0 * 2) - 1);
-                    (NodeIndex(idx), lc)
-                },
-                |(idx, lc)| black_box(idx.direct_path(lc)),
-                BatchSize::SmallInput,
-            )
-        });
-        group.bench_with_input(BenchmarkId::new("new-fast", lc), &lc, |b, &lc| {
-            b.iter_batched(
-                || {
-                    NodeIndex(rand::thread_rng().gen_range(0..=lc.0));
-                    let idx = rand::thread_rng().gen_range(0u32..(lc.0 * 2) - 1);
-                    (NodeIndex(idx), lc)
-                },
-                |(idx, lc)| black_box(idx.direct_path_fast(lc)),
+                || (rand::random_range(0usize..(lc * 2) - 1), lc),
+                |(idx, lc)| black_box(direct_path(idx, lc)),
                 BatchSize::SmallInput,
             )
         });
         group.bench_with_input(BenchmarkId::new("naive", lc), &lc, |b, &lc| {
             b.iter_batched(
-                || {
-                    NodeIndex(rand::thread_rng().gen_range(0..=lc.0));
-                    let idx = rand::thread_rng().gen_range(0u32..(lc.0 * 2) - 1);
-                    (NodeIndex(idx), lc)
-                },
-                |(idx, lc)| black_box(idx.direct_path_rfc9420(lc)),
+                || (rand::random_range(0usize..(lc * 2) - 1), lc),
+                |(idx, lc)| black_box(direct_path_naive(idx, lc)),
                 BatchSize::SmallInput,
             )
         });
@@ -174,26 +122,18 @@ fn copath_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Copath");
     group.plot_config(plot_config);
 
-    for lc in LeafCount::range().step_by(LeafCount::BITS / ITERATIONS as usize) {
+    for lc in leaf_count_range().step_by(LEAF_COUNT_BITS / ITER as usize) {
         group.bench_with_input(BenchmarkId::new("new", lc), &lc, |b, &lc| {
             b.iter_batched(
-                || {
-                    NodeIndex(rand::thread_rng().gen_range(0..=lc.0));
-                    let idx = rand::thread_rng().gen_range(0u32..(lc.0 * 2) - 1);
-                    (NodeIndex(idx), lc)
-                },
-                |(idx, lc)| black_box(idx.copath(lc)),
+                || (rand::random_range(0usize..(lc * 2) - 1), lc),
+                |(idx, lc)| black_box(copath(idx, lc)),
                 BatchSize::SmallInput,
             )
         });
         group.bench_with_input(BenchmarkId::new("naive", lc), &lc, |b, &lc| {
             b.iter_batched(
-                || {
-                    NodeIndex(rand::thread_rng().gen_range(0..=lc.0));
-                    let idx = rand::thread_rng().gen_range(0u32..(lc.0 * 2) - 1);
-                    (NodeIndex(idx), lc)
-                },
-                |(idx, lc)| black_box(idx.copath_rfc9420(lc)),
+                || (rand::random_range(0usize..(lc * 2) - 1), lc),
+                |(idx, lc)| black_box(copath_naive(idx, lc)),
                 BatchSize::SmallInput,
             )
         });
@@ -203,46 +143,46 @@ fn copath_bench(c: &mut Criterion) {
 
 fn common_ancestor_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Common ancestor");
-    for i in NodeIndex::range(ITERATIONS) {
+    for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
             b.iter_batched(
                 || {
-                    let mut a = rand::thread_rng().gen_range(0..=i.0);
+                    let mut a = rand::random_range(0..=i);
                     a &= !1;
-                    let mut b = rand::thread_rng().gen_range(0..=i.0);
+                    let mut b = rand::random_range(0..=i);
                     b &= !1;
-                    (NodeIndex(a), NodeIndex(b))
+                    (a, b)
                 },
-                |(a, b)| black_box(a.common_ancestor(b)),
+                |(a, b)| black_box(common_ancestor(a, b)),
                 BatchSize::SmallInput,
             )
         });
         group.bench_with_input(BenchmarkId::new("naive", i), &i, |b, &i| {
             b.iter_batched(
                 || {
-                    let mut a = rand::thread_rng().gen_range(0..=i.0);
+                    let mut a = rand::random_range(0..=i);
                     a &= !1;
-                    let mut b = rand::thread_rng().gen_range(0..=i.0);
+                    let mut b = rand::random_range(0..=i);
                     b &= !1;
-                    (NodeIndex(a), NodeIndex(b))
+                    (a, b)
                 },
-                |(a, b)| black_box(a.common_ancestor_rfc9420(b)),
+                |(a, b)| black_box(common_ancestor_naive(a, b)),
                 BatchSize::SmallInput,
             )
         });
     }
     group.finish();
-}*/
+}
 
 criterion_group!(
     benches,
     level_bench,
     root_bench,
-    // parent_bench,
-    // sibling_bench,
-    // left_right_bench,
-    // direct_path_bench,
-    // copath_bench,
-    // common_ancestor_bench
+    parent_bench,
+    sibling_bench,
+    left_right_bench,
+    direct_path_bench,
+    copath_bench,
+    common_ancestor_bench
 );
 criterion_main!(benches);
