@@ -2,6 +2,14 @@
 name = "treemath"
 version = "0.1.0"
 edition = "2024"
+license = "Apache-2.0"
+authors = ["Beltram Maldant"]
+description = "Arithmetics for perfect binary trees"
+keywords = ["tree"]
+documentation = "https://docs.rs/treemath"
+repository = "https://github.com/beltram/treemath"
+homepage = "https://github.com/beltram/treemath"
+resolver = "3"
 
 [dev-dependencies]
 treemath = { path = ".", features = ["bench"] }
