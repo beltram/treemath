@@ -5,4 +5,4 @@ Perfect binary trees are a subcategory of binary trees where each node has two c
 
 This crates tries to be as fast as optimal, going branchless wherever possible and using some bit twiddling techniques.
 
-See [benchamrks](./BENCHMARKS.md) for an overview of the benefits over a naive implementation.
+See [benchmarks](./BENCHMARKS.md) for an overview of the benefits over a naive implementation.
