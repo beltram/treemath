@@ -366,7 +366,6 @@ mod tests {
         #[test]
         fn should_succeed() {
             for (lc, i) in leaf_count_range_with_node_index().take(10) {
-                println!("node_index: {i}, leaf_count: {lc}");
                 assert_eq!(copath(i, lc), copath_naive(i, lc));
             }
         }
