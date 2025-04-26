@@ -192,6 +192,7 @@ mod bits {
         n |= n.wrapping_shr(4);
         n |= n.wrapping_shr(8);
         n |= n.wrapping_shr(16);
+        n |= n.wrapping_shr(32);
         n - n.wrapping_shr(1)
     }
 
@@ -207,6 +208,22 @@ mod bits {
         n |= n.wrapping_shr(32);
         n += 1;
         n
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn msb_should_succeed() {
+            assert_eq!(1, most_significant_bit(1));
+            assert_eq!(2, most_significant_bit(2));
+            assert_eq!(2, most_significant_bit(3));
+            assert_eq!(4, most_significant_bit(4));
+            assert_eq!(4, most_significant_bit(5));
+            assert_eq!(4, most_significant_bit(6));
+            assert_eq!(usize::MAX, most_significant_bit(usize::MAX));
+        }
     }
 }
 
@@ -430,6 +447,14 @@ mod tests {
                 for b in level_range(0).take(1 << e) {
                     assert_eq!(common_ancestor(a, b), common_ancestor_naive(a, b));
                 }
+            }
+        }
+
+        #[test]
+        fn should_succeed_at_boundaries() {
+            let values = [(0, 2), (0, NODE_INDEX_MAX)];
+            for (a, b) in values {
+                assert_eq!(common_ancestor(a, b), common_ancestor_naive(a, b));
             }
         }
 
