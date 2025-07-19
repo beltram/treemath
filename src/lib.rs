@@ -54,7 +54,7 @@ pub const fn sibling(node_index: usize, leaf_count: usize) -> Option<usize> {
 }
 
 #[inline(always)]
-pub fn left(node_index: usize) -> Option<usize> {
+pub const fn left(node_index: usize) -> Option<usize> {
     if node_index % 2 == 0 {
         return None;
     }
@@ -71,6 +71,21 @@ pub const fn right(node_index: usize) -> Option<usize> {
     let lzb = bits::last_zero_bit(node_index);
     let right = (node_index | lzb) & !lzb.wrapping_shr(1);
     Some(right)
+}
+
+/// Returns (left, right)
+#[inline(always)]
+pub const fn children(node_index: usize) -> Option<(usize, usize)> {
+    if node_index % 2 == 0 {
+        return None;
+    }
+    let lzb = bits::last_zero_bit(node_index);
+    let mask = !lzb.wrapping_shr(1);
+
+    let left = node_index & mask;
+    let right = (node_index | lzb) & mask;
+
+    Some((left, right))
 }
 
 pub fn direct_path(node_index: usize, leaf_count: usize) -> Option<VecDeque<usize>> {
