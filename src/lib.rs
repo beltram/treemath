@@ -3,25 +3,25 @@ use std::collections::VecDeque;
 
 /// Returns the height of that node in the tree
 #[inline(always)]
-pub const fn level(node_index: usize) -> usize {
-    node_index.trailing_ones() as usize
+pub const fn level(node_index: u32) -> u32 {
+    node_index.trailing_ones()
 }
 
 /// Returns the root node
 #[inline(always)]
-pub const fn root(leaf_count: usize) -> usize {
+pub const fn root(leaf_count: u32) -> u32 {
     // leaf_count.wrapping_sub(1); // works only in case leaf_count is a power of 2
     if leaf_count == 0 {
         return 0;
     }
     let shl = node_width(leaf_count).ilog2();
-    let pow2: usize = 1 << shl;
+    let pow2: u32 = 1 << shl;
     pow2.wrapping_sub(1)
 }
 
 /// Number of nodes needed to represent a tree with [leaf_count] leaves.
 #[inline(always)]
-pub const fn node_width(leaf_count: usize) -> usize {
+pub const fn node_width(leaf_count: u32) -> u32 {
     if leaf_count == 0 {
         return 0;
     }
@@ -34,7 +34,7 @@ pub const fn node_width(leaf_count: usize) -> usize {
 
 /// Get the parent of a node, return [None] if the node is the root
 #[inline(always)]
-pub const fn parent(node_index: usize, leaf_count: usize) -> Option<usize> {
+pub const fn parent(node_index: u32, leaf_count: u32) -> Option<u32> {
     if node_index == root(leaf_count) {
         return None;
     }
@@ -43,18 +43,18 @@ pub const fn parent(node_index: usize, leaf_count: usize) -> Option<usize> {
 
 /// Given a node, return the left/right child of his parent, return [None] when root
 #[inline(always)]
-pub const fn sibling(node_index: usize, leaf_count: usize) -> Option<usize> {
+pub const fn sibling(node_index: u32, leaf_count: u32) -> Option<u32> {
     let Some(parent) = parent(node_index, leaf_count) else {
         return None;
     };
     let parent = parent as isize;
     let d = parent.overflowing_sub(node_index as isize).0;
     let sibling = parent.overflowing_add(d).0;
-    Some(sibling as usize)
+    Some(sibling as u32)
 }
 
 #[inline(always)]
-pub const fn left(node_index: usize) -> Option<usize> {
+pub const fn left(node_index: u32) -> Option<u32> {
     if node_index % 2 == 0 {
         return None;
     }
@@ -64,7 +64,7 @@ pub const fn left(node_index: usize) -> Option<usize> {
 }
 
 #[inline(always)]
-pub const fn right(node_index: usize) -> Option<usize> {
+pub const fn right(node_index: u32) -> Option<u32> {
     if node_index % 2 == 0 {
         return None;
     }
@@ -75,7 +75,7 @@ pub const fn right(node_index: usize) -> Option<usize> {
 
 /// Returns (left, right)
 #[inline(always)]
-pub const fn children(node_index: usize) -> Option<(usize, usize)> {
+pub const fn children(node_index: u32) -> Option<(u32, u32)> {
     if node_index % 2 == 0 {
         return None;
     }
@@ -88,7 +88,7 @@ pub const fn children(node_index: usize) -> Option<(usize, usize)> {
     Some((left, right))
 }
 
-pub fn direct_path(node_index: usize, leaf_count: usize) -> Option<VecDeque<usize>> {
+pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
     // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
     let mut root = root(leaf_count);
     if node_index == root {
@@ -100,13 +100,13 @@ pub fn direct_path(node_index: usize, leaf_count: usize) -> Option<VecDeque<usiz
     let floor = LEVEL_MAX.wrapping_sub(root_level);
     let node_level = level(node_index);
     let mut path_size = root_level.wrapping_sub(node_level);
-    let mut path = VecDeque::with_capacity(path_size);
+    let mut path = VecDeque::with_capacity(path_size as usize);
 
     path.push_back(root);
 
     path_size = path_size.wrapping_sub(1);
 
-    let mask = usize::MAX >> floor;
+    let mask = u32::MAX >> floor;
     let chunk = node_index & mask;
 
     for _ in 0..path_size {
@@ -120,15 +120,15 @@ pub fn direct_path(node_index: usize, leaf_count: usize) -> Option<VecDeque<usiz
 }
 
 #[inline(always)]
-pub const fn child_with_direction(node_index: usize, direction: bool, level: usize) -> usize {
-    let f = 2usize ^ (1usize.wrapping_shl(direction as u32) | 1);
+pub const fn child_with_direction(node_index: u32, direction: bool, level: u32) -> u32 {
+    let f = 2u32 ^ (1u32.wrapping_shl(direction as u32) | 1);
     let lvl = level.wrapping_sub(1);
-    let f = f.wrapping_shl(lvl as u32);
+    let f = f.wrapping_shl(lvl);
     node_index ^ f
 }
 
 #[inline(always)]
-const fn nephew(node_index: usize, is_left: bool, leaf_count: usize, mut level: usize) -> Option<usize> {
+const fn nephew(node_index: u32, is_left: bool, leaf_count: u32, mut level: u32) -> Option<u32> {
     if level < 1 {
         return None;
     }
@@ -142,7 +142,7 @@ const fn nephew(node_index: usize, is_left: bool, leaf_count: usize, mut level: 
     Some(nephew)
 }
 
-pub fn copath(node_index: usize, leaf_count: usize) -> Option<VecDeque<usize>> {
+pub fn copath(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
     // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
     let mut root = root(leaf_count);
     if node_index == root {
@@ -154,9 +154,9 @@ pub fn copath(node_index: usize, leaf_count: usize) -> Option<VecDeque<usize>> {
     let floor = LEVEL_MAX.wrapping_sub(root_level);
     let node_level = level(node_index);
     let path_size = root_level.wrapping_sub(node_level).wrapping_sub(1);
-    let mut copath = VecDeque::with_capacity(path_size);
+    let mut copath = VecDeque::with_capacity(path_size as usize);
 
-    let mask = usize::MAX >> floor;
+    let mask = u32::MAX >> floor;
     let chunk = node_index & mask;
 
     let b = ((chunk >> root_level) & 1) == 0;
@@ -181,7 +181,7 @@ pub fn copath(node_index: usize, leaf_count: usize) -> Option<VecDeque<usize>> {
 }
 
 #[inline(always)]
-pub const fn common_ancestor(node_index: usize, other: usize) -> usize {
+pub const fn common_ancestor(node_index: u32, other: u32) -> u32 {
     if node_index == other {
         return node_index;
     }
@@ -191,29 +191,28 @@ pub const fn common_ancestor(node_index: usize, other: usize) -> usize {
 
 mod bits {
     #[inline(always)]
-    pub const fn last_set_bit(n: usize) -> usize {
+    pub const fn last_set_bit(n: u32) -> u32 {
         n.wrapping_sub(n.wrapping_sub(1) & n)
     }
 
     #[inline(always)]
-    pub const fn last_zero_bit(n: usize) -> usize {
+    pub const fn last_zero_bit(n: u32) -> u32 {
         last_set_bit(n + 1)
     }
 
     #[inline(always)]
-    pub const fn most_significant_bit(mut n: usize) -> usize {
+    pub const fn most_significant_bit(mut n: u32) -> u32 {
         n |= n.wrapping_shr(1);
         n |= n.wrapping_shr(2);
         n |= n.wrapping_shr(4);
         n |= n.wrapping_shr(8);
         n |= n.wrapping_shr(16);
-        n |= n.wrapping_shr(32);
         n - n.wrapping_shr(1)
     }
 
     #[allow(dead_code)]
     #[inline(always)]
-    pub const fn round_up_power_2(mut n: usize) -> usize {
+    pub const fn round_up_power_2(mut n: u32) -> u32 {
         n -= 1;
         n |= n.wrapping_shr(1);
         n |= n.wrapping_shr(2);
@@ -237,7 +236,7 @@ mod bits {
             assert_eq!(4, most_significant_bit(4));
             assert_eq!(4, most_significant_bit(5));
             assert_eq!(4, most_significant_bit(6));
-            assert_eq!(usize::MAX, most_significant_bit(usize::MAX));
+            assert_eq!(1 << 31, most_significant_bit(u32::MAX));
         }
     }
 }
@@ -252,7 +251,7 @@ mod tests {
 
         #[test]
         fn should_succeed() {
-            for i in 0usize..100_000 {
+            for i in 0u32..100_000 {
                 assert_eq!(level(i), level_naive(i), "failed for node index {}", i);
             }
         }
@@ -297,7 +296,7 @@ mod tests {
         fn should_succeed_at_boundaries() {
             assert_eq!(node_width(0), 0);
             assert_eq!(node_width(LEAF_COUNT_MAX), NODE_WIDTH_MAX);
-            assert_eq!(node_width(usize::MAX), NODE_WIDTH_MAX);
+            assert_eq!(node_width(u32::MAX), NODE_WIDTH_MAX);
         }
     }
 
@@ -316,12 +315,12 @@ mod tests {
         fn should_succeed_for_leaves() {
             let lc = LEAF_COUNT_MAX;
             for left_leaf in (0..=u16::MAX).step_by(4) {
-                assert_eq!(parent(left_leaf as usize, lc), parent_naive(left_leaf as usize, lc));
-                assert_eq!(parent(left_leaf as usize, lc), Some(left_leaf as usize + 1));
+                assert_eq!(parent(left_leaf as u32, lc), parent_naive(left_leaf as u32, lc));
+                assert_eq!(parent(left_leaf as u32, lc), Some(left_leaf as u32 + 1));
             }
             for right_leaf in (2..=u16::MAX).step_by(4) {
-                assert_eq!(parent(right_leaf as usize, lc), parent_naive(right_leaf as usize, lc));
-                assert_eq!(parent(right_leaf as usize, lc), Some(right_leaf as usize - 1));
+                assert_eq!(parent(right_leaf as u32, lc), parent_naive(right_leaf as u32, lc));
+                assert_eq!(parent(right_leaf as u32, lc), Some(right_leaf as u32 - 1));
             }
         }
 
@@ -344,9 +343,9 @@ mod tests {
 
         #[test]
         fn should_succeed_for_remarkable_values() {
-            let lc = 8usize;
+            let lc = 8u32;
             let values = [
-                (0usize, vec![1usize, 3, 7]),
+                (0u32, vec![1u32, 3, 7]),
                 (1, vec![3, 7]),
                 (2, vec![1, 3, 7]),
                 (3, vec![7]),
@@ -404,9 +403,9 @@ mod tests {
 
         #[test]
         fn should_succeed_for_remarkable_values() {
-            let lc = 8usize;
+            let lc = 8u32;
             let values = [
-                (0usize, vec![2usize, 5, 11]),
+                (0u32, vec![2u32, 5, 11]),
                 (1, vec![5, 11]),
                 (2, vec![0, 5, 11]),
                 (3, vec![11]),
@@ -473,7 +472,7 @@ mod tests {
             }
         }
 
-        fn level_range(level: usize) -> impl Iterator<Item = usize> {
+        fn level_range(level: u32) -> impl Iterator<Item = u32> {
             let lower = (1 << level) - 1;
             let step = 1 << (level + 1);
             (lower..=NODE_INDEX_MAX).step_by(step).dedup()
@@ -482,25 +481,25 @@ mod tests {
 }
 
 pub mod bounds {
-    pub const NODE_INDEX_MAX: usize = usize::MAX - 1;
-    pub const LEAF_COUNT_MAX: usize = (NODE_INDEX_MAX / 2) + 1;
-    pub const NODE_WIDTH_MAX: usize = (LEAF_COUNT_MAX - 1) * 2 + 1;
-    pub const ROOT_MAX: usize = LEAF_COUNT_MAX - 1;
-    pub const LEVEL_MAX: usize = (usize::BITS - 1) as usize;
+    pub const NODE_INDEX_MAX: u32 = u32::MAX - 1;
+    pub const LEAF_COUNT_MAX: u32 = (NODE_INDEX_MAX / 2) + 1;
+    pub const NODE_WIDTH_MAX: u32 = (LEAF_COUNT_MAX - 1) * 2 + 1;
+    pub const ROOT_MAX: u32 = LEAF_COUNT_MAX - 1;
+    pub const LEVEL_MAX: u32 = u32::BITS - 1;
 
-    pub const LEAF_COUNT_BITS: usize = 31;
-    pub const ROOT_BITS: usize = 31;
+    pub const LEAF_COUNT_BITS: u32 = 31;
+    pub const ROOT_BITS: u32 = 31;
 
-    pub fn leaf_count_range() -> impl Iterator<Item = usize> {
+    pub fn leaf_count_range() -> impl Iterator<Item = u32> {
         (0..=LEAF_COUNT_BITS).map(|sh| 1 << sh)
     }
 
     // returns an iterator of (root, leaf_count)
-    pub fn root_range() -> impl Iterator<Item = (usize, usize)> {
+    pub fn root_range() -> impl Iterator<Item = (u32, u32)> {
         (0..=ROOT_BITS).map(|e| (1 << e) - 1).map(|root| (root, root + 1))
     }
 
-    pub fn leaf_count_range_with_node_index() -> impl Iterator<Item = (usize, usize)> {
+    pub fn leaf_count_range_with_node_index() -> impl Iterator<Item = (u32, u32)> {
         leaf_count_range().flat_map(|lc| (0..=lc.saturating_sub(1) * 2).map(move |i| (lc, i)))
     }
 }
@@ -512,7 +511,7 @@ pub mod naive {
     use std::ops::Shl;
 
     #[inline(always)]
-    pub fn level_naive(node_index: usize) -> usize {
+    pub fn level_naive(node_index: u32) -> u32 {
         if node_index & 0x01 == 0 {
             return 0;
         }
@@ -521,21 +520,21 @@ pub mod naive {
         while node_index.checked_shr(k).is_some() && (node_index >> k) & 0x01 == 1 {
             k += 1;
         }
-        k as usize
+        k as u32
     }
 
     #[inline(always)]
-    pub fn root_naive(leaf_count: usize) -> usize {
+    pub fn root_naive(leaf_count: u32) -> u32 {
         if leaf_count == 0 {
             return 0;
         }
         let width = node_width(leaf_count);
-        let pow2: usize = 1 << width.ilog2();
+        let pow2: u32 = 1 << width.ilog2();
         pow2.wrapping_sub(1)
     }
 
     #[inline(always)]
-    pub fn parent_naive(node_index: usize, leaf_count: usize) -> Option<usize> {
+    pub fn parent_naive(node_index: u32, leaf_count: u32) -> Option<u32> {
         if node_index == root_naive(leaf_count) {
             return None;
         }
@@ -546,13 +545,13 @@ pub mod naive {
     }
 
     #[inline(always)]
-    pub fn sibling_naive(node_index: usize, leaf_count: usize) -> Option<usize> {
+    pub fn sibling_naive(node_index: u32, leaf_count: u32) -> Option<u32> {
         let parent = parent_naive(node_index, leaf_count)?;
         if node_index < parent { right_naive(parent) } else { left_naive(parent) }
     }
 
     #[inline(always)]
-    pub fn left_naive(node_index: usize) -> Option<usize> {
+    pub fn left_naive(node_index: u32) -> Option<u32> {
         let k = level_naive(node_index);
         if k == 0 {
             return None;
@@ -562,7 +561,7 @@ pub mod naive {
     }
 
     #[inline(always)]
-    pub fn right_naive(node_index: usize) -> Option<usize> {
+    pub fn right_naive(node_index: u32) -> Option<u32> {
         let k = level_naive(node_index);
         if k == 0 {
             return None;
@@ -572,7 +571,7 @@ pub mod naive {
     }
 
     #[inline(always)]
-    pub fn direct_path_naive(mut node_index: usize, leaf_count: usize) -> Option<VecDeque<usize>> {
+    pub fn direct_path_naive(mut node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
         let root = root_naive(leaf_count);
         if node_index == root {
             return None;
@@ -590,7 +589,7 @@ pub mod naive {
         Some(ret)
     }
 
-    pub fn copath_naive(node_index: usize, leaf_count: usize) -> Option<VecDeque<usize>> {
+    pub fn copath_naive(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
         if node_index == root(leaf_count) {
             return None;
         }
@@ -602,7 +601,7 @@ pub mod naive {
         path.into_iter().map(|path_idx| sibling(path_idx, leaf_count)).collect()
     }
 
-    pub fn common_ancestor_naive(mut node_index: usize, mut other: usize) -> usize {
+    pub fn common_ancestor_naive(mut node_index: u32, mut other: u32) -> u32 {
         let self_lvl = level_naive(node_index).saturating_add(1);
         let other_lvl = level_naive(other).saturating_add(1);
         if self_lvl <= other_lvl && (node_index >> other_lvl) == (other >> other_lvl) {
@@ -618,7 +617,7 @@ pub mod naive {
             k = k.saturating_add(1);
         }
 
-        let s = 1usize.shl(k.saturating_sub(1));
+        let s = 1u32.shl(k.saturating_sub(1));
         (node_index.overflowing_shl(k).0).saturating_add(s).saturating_sub(1)
     }
 }
