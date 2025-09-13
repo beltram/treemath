@@ -1,10 +1,11 @@
-use criterion::{AxisScale, BatchSize, BenchmarkId, Criterion, PlotConfiguration, black_box, criterion_group, criterion_main};
+use criterion::{AxisScale, BatchSize, BenchmarkId, Criterion, PlotConfiguration, criterion_group, criterion_main};
 use itertools::Itertools;
+use std::hint::black_box;
 use treemath::bounds::*;
 use treemath::naive::*;
 use treemath::*;
 
-const ITER: usize = 3;
+const ITER: u32 = 3;
 
 fn level_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Level");
@@ -22,8 +23,8 @@ fn level_bench(c: &mut Criterion) {
 mod ranges {
     use super::*;
 
-    pub fn node_index(step: usize) -> impl Iterator<Item = usize> {
-        let iter = (0..=NODE_INDEX_MAX).step_by(NODE_INDEX_MAX / step);
+    pub fn node_index(step: u32) -> impl Iterator<Item = u32> {
+        let iter = (0..=NODE_INDEX_MAX).step_by(NODE_INDEX_MAX as usize / step as usize);
         iter.chain(std::iter::once(NODE_INDEX_MAX)).dedup()
     }
 }
@@ -98,17 +99,17 @@ fn direct_path_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Direct path");
     group.plot_config(plot_config);
 
-    for lc in leaf_count_range().step_by(LEAF_COUNT_BITS / ITER) {
+    for lc in leaf_count_range().step_by(LEAF_COUNT_BITS as usize / ITER as usize) {
         group.bench_with_input(BenchmarkId::new("new", lc), &lc, |b, &lc| {
             b.iter_batched(
-                || (rand::random_range(0usize..(lc * 2) - 1), lc),
+                || (rand::random_range(0u32..(lc * 2) - 1), lc),
                 |(idx, lc)| black_box(direct_path(idx, lc)),
                 BatchSize::SmallInput,
             )
         });
         group.bench_with_input(BenchmarkId::new("naive", lc), &lc, |b, &lc| {
             b.iter_batched(
-                || (rand::random_range(0usize..(lc * 2) - 1), lc),
+                || (rand::random_range(0u32..(lc * 2) - 1), lc),
                 |(idx, lc)| black_box(direct_path_naive(idx, lc)),
                 BatchSize::SmallInput,
             )
@@ -122,17 +123,17 @@ fn copath_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Copath");
     group.plot_config(plot_config);
 
-    for lc in leaf_count_range().step_by(LEAF_COUNT_BITS / ITER as usize) {
+    for lc in leaf_count_range().step_by(LEAF_COUNT_BITS as usize / ITER as usize) {
         group.bench_with_input(BenchmarkId::new("new", lc), &lc, |b, &lc| {
             b.iter_batched(
-                || (rand::random_range(0usize..(lc * 2) - 1), lc),
+                || (rand::random_range(0u32..(lc * 2) - 1), lc),
                 |(idx, lc)| black_box(copath(idx, lc)),
                 BatchSize::SmallInput,
             )
         });
         group.bench_with_input(BenchmarkId::new("naive", lc), &lc, |b, &lc| {
             b.iter_batched(
-                || (rand::random_range(0usize..(lc * 2) - 1), lc),
+                || (rand::random_range(0u32..(lc * 2) - 1), lc),
                 |(idx, lc)| black_box(copath_naive(idx, lc)),
                 BatchSize::SmallInput,
             )

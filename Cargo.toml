@@ -13,7 +13,7 @@ resolver = "3"
 
 [dev-dependencies]
 treemath = { path = ".", features = ["bench"] }
-criterion = "0.5"
+criterion = "0.7"
 rand = "0.9"
 itertools = "0.14"
 
