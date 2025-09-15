@@ -1,6 +1,8 @@
 use crate::bounds::LEVEL_MAX;
 use std::collections::VecDeque;
 
+mod branch_opt;
+
 /// Returns the height of that node in the tree
 #[inline(always)]
 pub const fn level(node_index: u32) -> u32 {
@@ -11,7 +13,7 @@ pub const fn level(node_index: u32) -> u32 {
 #[inline(always)]
 pub const fn root(leaf_count: u32) -> u32 {
     // leaf_count.wrapping_sub(1); // works only in case leaf_count is a power of 2
-    if leaf_count == 0 {
+    if branch_opt::unlikely(leaf_count == 0) {
         return 0;
     }
     let shl = node_width(leaf_count).ilog2();
@@ -22,7 +24,7 @@ pub const fn root(leaf_count: u32) -> u32 {
 /// Number of nodes needed to represent a tree with [leaf_count] leaves.
 #[inline(always)]
 pub const fn node_width(leaf_count: u32) -> u32 {
-    if leaf_count == 0 {
+    if branch_opt::unlikely(leaf_count == 0) {
         return 0;
     }
     // 2*(n - 1) + 1
@@ -35,7 +37,7 @@ pub const fn node_width(leaf_count: u32) -> u32 {
 /// Get the parent of a node, return [None] if the node is the root
 #[inline(always)]
 pub const fn parent(node_index: u32, leaf_count: u32) -> Option<u32> {
-    if node_index == root(leaf_count) {
+    if branch_opt::unlikely(node_index == root(leaf_count)) {
         return None;
     }
     Some((bits::last_zero_bit(node_index) | node_index) & !bits::last_zero_bit(node_index).wrapping_shl(1))
@@ -55,7 +57,7 @@ pub const fn sibling(node_index: u32, leaf_count: u32) -> Option<u32> {
 
 #[inline(always)]
 pub const fn left(node_index: u32) -> Option<u32> {
-    if node_index % 2 == 0 {
+    if branch_opt::unlikely(node_index % 2 == 0) {
         return None;
     }
     let lzb = bits::last_zero_bit(node_index);
@@ -65,7 +67,7 @@ pub const fn left(node_index: u32) -> Option<u32> {
 
 #[inline(always)]
 pub const fn right(node_index: u32) -> Option<u32> {
-    if node_index % 2 == 0 {
+    if branch_opt::unlikely(node_index % 2 == 0) {
         return None;
     }
     let lzb = bits::last_zero_bit(node_index);
@@ -76,7 +78,7 @@ pub const fn right(node_index: u32) -> Option<u32> {
 /// Returns (left, right)
 #[inline(always)]
 pub const fn children(node_index: u32) -> Option<(u32, u32)> {
-    if node_index % 2 == 0 {
+    if branch_opt::unlikely(node_index % 2 == 0) {
         return None;
     }
     let lzb = bits::last_zero_bit(node_index);
@@ -91,7 +93,7 @@ pub const fn children(node_index: u32) -> Option<(u32, u32)> {
 pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
     // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
     let mut root = root(leaf_count);
-    if node_index == root {
+    if branch_opt::unlikely(node_index == root) {
         return None;
     }
 
@@ -129,7 +131,7 @@ pub const fn child_with_direction(node_index: u32, direction: bool, level: u32) 
 
 #[inline(always)]
 const fn nephew(node_index: u32, is_left: bool, leaf_count: u32, mut level: u32) -> Option<u32> {
-    if level < 1 {
+    if branch_opt::unlikely(level < 1) {
         return None;
     }
     let Some(parent) = parent(node_index, leaf_count) else {
@@ -145,7 +147,7 @@ const fn nephew(node_index: u32, is_left: bool, leaf_count: u32, mut level: u32)
 pub fn copath(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
     // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
     let mut root = root(leaf_count);
-    if node_index == root {
+    if branch_opt::unlikely(node_index == root) {
         return None;
     }
 
@@ -182,7 +184,7 @@ pub fn copath(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
 
 #[inline(always)]
 pub const fn common_ancestor(node_index: u32, other: u32) -> u32 {
-    if node_index == other {
+    if branch_opt::unlikely(node_index == other) {
         return node_index;
     }
     let d = bits::most_significant_bit(node_index ^ other);
