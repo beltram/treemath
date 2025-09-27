@@ -1,13 +1,16 @@
-use criterion::{AxisScale, BatchSize, BenchmarkId, Criterion, PlotConfiguration, criterion_group, criterion_main};
-use itertools::Itertools;
-use std::hint::black_box;
-use treemath::bounds::*;
-use treemath::naive::*;
-use treemath::*;
+pub use {
+    criterion::{AxisScale, BatchSize, BenchmarkId, Criterion, PlotConfiguration, criterion_group, criterion_main},
+    itertools::Itertools,
+    std::hint::black_box,
+    treemath::bounds::*,
+    treemath::naive::*,
+    treemath::*,
+};
 
 const ITER: u32 = 3;
 
-fn level_bench(c: &mut Criterion) {
+#[allow(unused)]
+pub fn level_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Level");
     for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
@@ -29,7 +32,8 @@ mod ranges {
     }
 }
 
-fn root_bench(c: &mut Criterion) {
+#[allow(unused)]
+pub fn root_bench(c: &mut Criterion) {
     let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
     let mut group = c.benchmark_group("Root");
     group.plot_config(plot_config);
@@ -45,7 +49,8 @@ fn root_bench(c: &mut Criterion) {
     group.finish();
 }
 
-fn parent_bench(c: &mut Criterion) {
+#[allow(unused)]
+pub fn parent_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Parent");
     for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
@@ -58,7 +63,8 @@ fn parent_bench(c: &mut Criterion) {
     group.finish();
 }
 
-fn sibling_bench(c: &mut Criterion) {
+#[allow(unused)]
+pub fn sibling_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Sibling");
     for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
@@ -71,7 +77,8 @@ fn sibling_bench(c: &mut Criterion) {
     group.finish();
 }
 
-fn left_right_bench(c: &mut Criterion) {
+#[allow(unused)]
+pub fn left_right_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Left");
     for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
@@ -94,7 +101,8 @@ fn left_right_bench(c: &mut Criterion) {
     group.finish();
 }
 
-fn direct_path_bench(c: &mut Criterion) {
+#[allow(unused)]
+pub fn direct_path_bench(c: &mut Criterion) {
     let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
     let mut group = c.benchmark_group("Direct path");
     group.plot_config(plot_config);
@@ -118,7 +126,8 @@ fn direct_path_bench(c: &mut Criterion) {
     group.finish();
 }
 
-fn copath_bench(c: &mut Criterion) {
+#[allow(unused)]
+pub fn copath_bench(c: &mut Criterion) {
     let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
     let mut group = c.benchmark_group("Copath");
     group.plot_config(plot_config);
@@ -142,7 +151,8 @@ fn copath_bench(c: &mut Criterion) {
     group.finish();
 }
 
-fn common_ancestor_bench(c: &mut Criterion) {
+#[allow(unused)]
+pub fn common_ancestor_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Common ancestor");
     for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
