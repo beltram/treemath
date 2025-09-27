@@ -18,7 +18,39 @@ rand = "0.9"
 itertools = "0.14"
 
 [[bench]]
-name = "criterion"
+name = "all"
+harness = false
+
+[[bench]]
+name = "level"
+harness = false
+
+[[bench]]
+name = "root"
+harness = false
+
+[[bench]]
+name = "parent"
+harness = false
+
+[[bench]]
+name = "sibling"
+harness = false
+
+[[bench]]
+name = "left_right"
+harness = false
+
+[[bench]]
+name = "direct_path"
+harness = false
+
+[[bench]]
+name = "copath"
+harness = false
+
+[[bench]]
+name = "common_ancestor"
 harness = false
 
 [features]
