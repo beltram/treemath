@@ -55,7 +55,7 @@ pub const fn sibling(node_index: u32, leaf_count: u32) -> Option<u32> {
 
 #[inline(always)]
 pub const fn left(node_index: u32) -> Option<u32> {
-    if node_index % 2 == 0 {
+    if node_index.is_multiple_of(2) {
         return None;
     }
     let lzb = bits::last_zero_bit(node_index);
@@ -65,7 +65,7 @@ pub const fn left(node_index: u32) -> Option<u32> {
 
 #[inline(always)]
 pub const fn right(node_index: u32) -> Option<u32> {
-    if node_index % 2 == 0 {
+    if node_index.is_multiple_of(2) {
         return None;
     }
     let lzb = bits::last_zero_bit(node_index);
@@ -76,7 +76,7 @@ pub const fn right(node_index: u32) -> Option<u32> {
 /// Returns (left, right)
 #[inline(always)]
 pub const fn children(node_index: u32) -> Option<(u32, u32)> {
-    if node_index % 2 == 0 {
+    if node_index.is_multiple_of(2) {
         return None;
     }
     let lzb = bits::last_zero_bit(node_index);
@@ -520,7 +520,7 @@ pub mod naive {
         while node_index.checked_shr(k).is_some() && (node_index >> k) & 0x01 == 1 {
             k += 1;
         }
-        k as u32
+        k
     }
 
     #[inline(always)]
