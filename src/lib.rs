@@ -3,8 +3,8 @@ use std::collections::VecDeque;
 
 /// Returns the height of that node in the tree
 #[inline(always)]
-pub const fn level(node_index: u32) -> u32 {
-    node_index.trailing_ones()
+pub const fn level(node_index: u32) -> u8 {
+    node_index.trailing_ones() as u8
 }
 
 /// Returns the root node
@@ -120,15 +120,15 @@ pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
 }
 
 #[inline(always)]
-pub const fn child_with_direction(node_index: u32, direction: bool, level: u32) -> u32 {
+pub const fn child_with_direction(node_index: u32, direction: bool, level: u8) -> u32 {
     let f = 2u32 ^ (1u32.wrapping_shl(direction as u32) | 1);
     let lvl = level.wrapping_sub(1);
-    let f = f.wrapping_shl(lvl);
+    let f = f.wrapping_shl(lvl as u32);
     node_index ^ f
 }
 
 #[inline(always)]
-const fn nephew(node_index: u32, is_left: bool, leaf_count: u32, mut level: u32) -> Option<u32> {
+const fn nephew(node_index: u32, is_left: bool, leaf_count: u32, mut level: u8) -> Option<u32> {
     if level < 1 {
         return None;
     }
@@ -252,14 +252,14 @@ mod tests {
         #[test]
         fn should_succeed() {
             for i in 0u32..100_000 {
-                assert_eq!(level(i), level_naive(i), "failed for node index {}", i);
+                assert_eq!(level(i) as u32, level_naive(i), "failed for node index {}", i);
             }
         }
 
         #[test]
         fn should_succeed_at_boundaries() {
-            assert_eq!(level(NODE_INDEX_MAX), level_naive(NODE_INDEX_MAX));
-            assert_eq!(level(0), level_naive(0));
+            assert_eq!(level(NODE_INDEX_MAX) as u32, level_naive(NODE_INDEX_MAX));
+            assert_eq!(level(0) as u32, level_naive(0));
         }
     }
 
@@ -485,7 +485,7 @@ pub mod bounds {
     pub const LEAF_COUNT_MAX: u32 = (NODE_INDEX_MAX / 2) + 1;
     pub const NODE_WIDTH_MAX: u32 = (LEAF_COUNT_MAX - 1) * 2 + 1;
     pub const ROOT_MAX: u32 = LEAF_COUNT_MAX - 1;
-    pub const LEVEL_MAX: u32 = u32::BITS - 1;
+    pub const LEVEL_MAX: u8 = u32::BITS as u8 - 1;
 
     pub const LEAF_COUNT_BITS: u32 = 31;
     pub const ROOT_BITS: u32 = 31;
