@@ -1,0 +1,34 @@
+name: bench
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+# `workflow_dispatch` allows CodSpeed to trigger backtest performance analysis in order to generate initial data.
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  RUST_BACKTRACE: '1'
+
+jobs:
+  benchmarks:
+    name: run benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-codspeed
+      - run: cargo codspeed build all
+      - name: Run the benchmarks
+        uses: CodSpeedHQ/action@v4
+        with:
+          mode: instrumentation
+          run: cargo codspeed run all
+          token: ${{ secrets.CODSPEED_TOKEN }}
