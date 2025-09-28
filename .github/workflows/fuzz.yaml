@@ -24,6 +24,9 @@ jobs:
           - fuzz_target: level
           - fuzz_target: root
           - fuzz_target: node_width
+          - fuzz_target: parent
+          - fuzz_target: left_right
+          - fuzz_target: sibling
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly

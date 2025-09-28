@@ -54,7 +54,7 @@ pub fn parent_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Parent");
     for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
-            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(parent(idx, LEAF_COUNT_MAX)), BatchSize::SmallInput)
+            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(parent_unchecked(idx, LEAF_COUNT_MAX)), BatchSize::SmallInput)
         });
         group.bench_with_input(BenchmarkId::new("naive", i), &i, |b, &i| {
             b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(parent_naive(idx, LEAF_COUNT_MAX)), BatchSize::SmallInput)
@@ -68,7 +68,7 @@ pub fn sibling_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Sibling");
     for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
-            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(sibling(idx, LEAF_COUNT_MAX)), BatchSize::SmallInput)
+            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(sibling_unchecked(idx, LEAF_COUNT_MAX)), BatchSize::SmallInput)
         });
         group.bench_with_input(BenchmarkId::new("naive", i), &i, |b, &i| {
             b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(sibling_naive(idx, LEAF_COUNT_MAX)), BatchSize::SmallInput)
@@ -82,7 +82,7 @@ pub fn left_right_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Left");
     for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
-            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(left(idx)), BatchSize::SmallInput)
+            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(left_unchecked(idx)), BatchSize::SmallInput)
         });
         group.bench_with_input(BenchmarkId::new("naive", i), &i, |b, &i| {
             b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(left_naive(idx)), BatchSize::SmallInput)
@@ -92,7 +92,7 @@ pub fn left_right_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Right");
     for i in ranges::node_index(ITER) {
         group.bench_with_input(BenchmarkId::new("new", i), &i, |b, &i| {
-            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(right(idx)), BatchSize::SmallInput)
+            b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(right_unchecked(idx)), BatchSize::SmallInput)
         });
         group.bench_with_input(BenchmarkId::new("naive", i), &i, |b, &i| {
             b.iter_batched(|| rand::random_range(0..=i), |idx| black_box(right_naive(idx)), BatchSize::SmallInput)

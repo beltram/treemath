@@ -41,3 +41,17 @@ path = "fuzz_targets/parent.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "sibling"
+path = "fuzz_targets/sibling.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "left_right"
+path = "fuzz_targets/left_right.rs"
+test = false
+doc = false
+bench = false

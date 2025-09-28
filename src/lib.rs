@@ -1,4 +1,4 @@
-use crate::bounds::LEVEL_MAX;
+use crate::bounds::{LEAF_COUNT_MAX, LEVEL_MAX, NODE_INDEX_MAX};
 use std::collections::VecDeque;
 
 /// Returns the height of that node in the tree
@@ -34,17 +34,26 @@ pub const fn node_width(leaf_count: u32) -> u32 {
 
 /// Get the parent of a node, return [None] if the node is the root
 #[inline(always)]
-pub const fn parent(node_index: u32, leaf_count: u32) -> Option<u32> {
+pub const fn parent_unchecked(node_index: u32, leaf_count: u32) -> Option<u32> {
     if node_index == root(leaf_count) {
         return None;
     }
     Some((bits::last_zero_bit(node_index) | node_index) & !bits::last_zero_bit(node_index).wrapping_shl(1))
 }
 
+/// Get the parent of a node, return [None] if the node is the root
+#[inline(always)]
+pub const fn parent(node_index: u32, leaf_count: u32) -> Option<u32> {
+    if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
+        return None;
+    }
+    parent_unchecked(node_index, leaf_count)
+}
+
 /// Given a node, return the left/right child of his parent, return [None] when root
 #[inline(always)]
-pub const fn sibling(node_index: u32, leaf_count: u32) -> Option<u32> {
-    let Some(parent) = parent(node_index, leaf_count) else {
+pub const fn sibling_unchecked(node_index: u32, leaf_count: u32) -> Option<u32> {
+    let Some(parent) = parent_unchecked(node_index, leaf_count) else {
         return None;
     };
     let parent = parent as isize;
@@ -53,8 +62,17 @@ pub const fn sibling(node_index: u32, leaf_count: u32) -> Option<u32> {
     Some(sibling as u32)
 }
 
+/// Given a node, return the left/right child of his parent, return [None] when root
 #[inline(always)]
-pub const fn left(node_index: u32) -> Option<u32> {
+pub const fn sibling(node_index: u32, leaf_count: u32) -> Option<u32> {
+    if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
+        return None;
+    }
+    sibling_unchecked(node_index, leaf_count)
+}
+
+#[inline(always)]
+pub const fn left_unchecked(node_index: u32) -> Option<u32> {
     if node_index.is_multiple_of(2) {
         return None;
     }
@@ -64,13 +82,29 @@ pub const fn left(node_index: u32) -> Option<u32> {
 }
 
 #[inline(always)]
-pub const fn right(node_index: u32) -> Option<u32> {
+pub const fn right_unchecked(node_index: u32) -> Option<u32> {
     if node_index.is_multiple_of(2) {
         return None;
     }
     let lzb = bits::last_zero_bit(node_index);
     let right = (node_index | lzb) & !lzb.wrapping_shr(1);
     Some(right)
+}
+
+#[inline(always)]
+pub const fn left(node_index: u32) -> Option<u32> {
+    if node_index > NODE_INDEX_MAX {
+        return None;
+    }
+    left_unchecked(node_index)
+}
+
+#[inline(always)]
+pub const fn right(node_index: u32) -> Option<u32> {
+    if node_index > NODE_INDEX_MAX {
+        return None;
+    }
+    right_unchecked(node_index)
 }
 
 /// Returns (left, right)
@@ -132,7 +166,7 @@ const fn nephew(node_index: u32, is_left: bool, leaf_count: u32, mut level: u8) 
     if level < 1 {
         return None;
     }
-    let Some(parent) = parent(node_index, leaf_count) else {
+    let Some(parent) = parent_unchecked(node_index, leaf_count) else {
         return None;
     };
     level = level.wrapping_add(1);
@@ -306,7 +340,7 @@ mod tests {
         #[test]
         fn should_fail_when_root() {
             for (r, lc) in root_range() {
-                assert!(parent(r, lc).is_none());
+                assert!(parent_unchecked(r, lc).is_none());
                 assert!(parent_naive(r, lc).is_none());
             }
         }
@@ -315,19 +349,19 @@ mod tests {
         fn should_succeed_for_leaves() {
             let lc = LEAF_COUNT_MAX;
             for left_leaf in (0..=u16::MAX).step_by(4) {
-                assert_eq!(parent(left_leaf as u32, lc), parent_naive(left_leaf as u32, lc));
-                assert_eq!(parent(left_leaf as u32, lc), Some(left_leaf as u32 + 1));
+                assert_eq!(parent_unchecked(left_leaf as u32, lc), parent_naive(left_leaf as u32, lc));
+                assert_eq!(parent_unchecked(left_leaf as u32, lc), Some(left_leaf as u32 + 1));
             }
             for right_leaf in (2..=u16::MAX).step_by(4) {
-                assert_eq!(parent(right_leaf as u32, lc), parent_naive(right_leaf as u32, lc));
-                assert_eq!(parent(right_leaf as u32, lc), Some(right_leaf as u32 - 1));
+                assert_eq!(parent_unchecked(right_leaf as u32, lc), parent_naive(right_leaf as u32, lc));
+                assert_eq!(parent_unchecked(right_leaf as u32, lc), Some(right_leaf as u32 - 1));
             }
         }
 
         #[test]
         fn should_succeed_at_boundaries() {
-            assert!(parent(NODE_INDEX_MAX, LEAF_COUNT_MAX).is_some());
-            assert_eq!(parent(NODE_INDEX_MAX, LEAF_COUNT_MAX), parent_naive(NODE_INDEX_MAX, LEAF_COUNT_MAX));
+            assert!(parent_unchecked(NODE_INDEX_MAX, LEAF_COUNT_MAX).is_some());
+            assert_eq!(parent_unchecked(NODE_INDEX_MAX, LEAF_COUNT_MAX), parent_naive(NODE_INDEX_MAX, LEAF_COUNT_MAX));
         }
     }
 
@@ -478,6 +512,27 @@ mod tests {
             (lower..=NODE_INDEX_MAX).step_by(step).dedup()
         }
     }
+
+    mod left_right {
+        use super::*;
+
+        #[test]
+        fn should_succeed() {
+            for node_index in (0..NODE_INDEX_MAX).step_by(100) {
+                assert_eq!(left_unchecked(node_index), left_naive(node_index));
+                assert_eq!(right_unchecked(node_index), right_naive(node_index));
+            }
+        }
+
+        #[test]
+        fn should_succeed_at_boundaries() {
+            let values = [0, 1, NODE_INDEX_MAX - 1, NODE_INDEX_MAX];
+            for node_index in values {
+                assert_eq!(left_unchecked(node_index), left_naive(node_index));
+                assert_eq!(right_unchecked(node_index), right_naive(node_index));
+            }
+        }
+    }
 }
 
 pub mod bounds {
@@ -598,7 +653,7 @@ pub mod naive {
         path.insert(0, node_index);
         let _ = path.pop_back();
 
-        path.into_iter().map(|path_idx| sibling(path_idx, leaf_count)).collect()
+        path.into_iter().map(|path_idx| sibling_unchecked(path_idx, leaf_count)).collect()
     }
 
     pub fn common_ancestor_naive(mut node_index: u32, mut other: u32) -> u32 {
