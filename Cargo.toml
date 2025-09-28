@@ -13,7 +13,7 @@ resolver = "3"
 
 [dev-dependencies]
 treemath = { path = ".", features = ["bench"] }
-criterion = { package = "codspeed-criterion-compat", version = "*" }
+criterion = { package = "codspeed-criterion-compat", version = "2.7" }
 rand = "0.9"
 itertools = "0.14"
 
