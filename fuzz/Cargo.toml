@@ -1,0 +1,43 @@
+[package]
+name = "treemath-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+arbitrary = { version = "1.4" , features = ["derive"]}
+libfuzzer-sys = "0.4"
+
+[dependencies.treemath]
+path = ".."
+
+[[bin]]
+name = "level"
+path = "fuzz_targets/level.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "root"
+path = "fuzz_targets/root.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "node_width"
+path = "fuzz_targets/node_width.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parent"
+path = "fuzz_targets/parent.rs"
+test = false
+doc = false
+bench = false

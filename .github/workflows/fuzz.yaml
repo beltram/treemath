@@ -1,0 +1,45 @@
+name: fuzz
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  RUST_BACKTRACE: '1'
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    env:
+      # The version of `cargo-fuzz` to install and use.
+      CARGO_FUZZ_VERSION: 0.12.0
+      # The number of seconds to run the fuzz target. 300 seconds = 5 minutes.
+      FUZZ_TIME: 300
+    strategy:
+      matrix:
+        include:
+          - fuzz_target: level
+          - fuzz_target: root
+          - fuzz_target: node_width
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      # Install and cache `cargo-fuzz`.
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.tool_cache }}/cargo-fuzz
+          key: cargo-fuzz-bin-${{ env.CARGO_FUZZ_VERSION }}
+      - run: echo "${{ runner.tool_cache }}/cargo-fuzz/bin" >> $GITHUB_PATH
+      - run: cargo install --root "${{ runner.tool_cache }}/cargo-fuzz" --version ${{ env.CARGO_FUZZ_VERSION }} cargo-fuzz --locked
+      # Build and then run the fuzz target.
+      - run: cargo fuzz build ${{ matrix.fuzz_target }}
+      - run: cargo fuzz run ${{ matrix.fuzz_target }} -- -max_total_time=${{ env.FUZZ_TIME }}
+      # Upload fuzzing artifacts on failure for post-mortem debugging.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzzing-artifacts-${{ matrix.fuzz_target }}-${{ github.sha }}
+          path: fuzz/artifacts
