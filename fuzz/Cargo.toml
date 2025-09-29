@@ -55,3 +55,24 @@ path = "fuzz_targets/left_right.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "direct_path"
+path = "fuzz_targets/direct_path.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "copath"
+path = "fuzz_targets/copath.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "common_ancestor"
+path = "fuzz_targets/common_ancestor.rs"
+test = false
+doc = false
+bench = false

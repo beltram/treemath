@@ -122,7 +122,7 @@ pub const fn children(node_index: u32) -> Option<(u32, u32)> {
     Some((left, right))
 }
 
-pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
+pub fn direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
     // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
     let mut root = root(leaf_count);
     if node_index == root {
@@ -153,6 +153,13 @@ pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
     Some(path)
 }
 
+pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
+    if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
+        return None;
+    }
+    direct_path_unchecked(node_index, leaf_count)
+}
+
 #[inline(always)]
 pub const fn child_with_direction(node_index: u32, direction: bool, level: u8) -> u32 {
     let f = 2u32 ^ (1u32.wrapping_shl(direction as u32) | 1);
@@ -176,7 +183,7 @@ const fn nephew(node_index: u32, is_left: bool, leaf_count: u32, mut level: u8) 
     Some(nephew)
 }
 
-pub fn copath(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
+pub fn copath_unchecked(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
     // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
     let mut root = root(leaf_count);
     if node_index == root {
@@ -214,13 +221,28 @@ pub fn copath(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
     Some(copath)
 }
 
+pub fn copath(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
+    if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
+        return None;
+    }
+    copath_unchecked(node_index, leaf_count)
+}
+
 #[inline(always)]
-pub const fn common_ancestor(node_index: u32, other: u32) -> u32 {
+pub const fn common_ancestor_unchecked(node_index: u32, other: u32) -> u32 {
     if node_index == other {
         return node_index;
     }
     let d = bits::most_significant_bit(node_index ^ other);
     (node_index & !d) | (d.wrapping_sub(1))
+}
+
+#[inline(always)]
+pub const fn common_ancestor(node_index: u32, other: u32) -> u32 {
+    if node_index > NODE_INDEX_MAX || other > NODE_INDEX_MAX {
+        return node_index;
+    }
+    common_ancestor_unchecked(node_index, other)
 }
 
 mod bits {
@@ -371,7 +393,7 @@ mod tests {
         #[test]
         fn should_succeed() {
             for (lc, i) in leaf_count_range_with_node_index().take(100_000) {
-                assert_eq!(direct_path(i, lc), direct_path_naive(i, lc));
+                assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc));
             }
         }
 
@@ -396,8 +418,8 @@ mod tests {
             ]
             .map(|(i, e)| (i, VecDeque::from_iter(e)));
             for (i, expected) in values {
-                assert_eq!(direct_path(i, lc), direct_path_naive(i, lc));
-                assert_eq!(direct_path(i, lc), Some(expected));
+                assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc));
+                assert_eq!(direct_path_unchecked(i, lc), Some(expected));
             }
         }
 
@@ -412,15 +434,15 @@ mod tests {
                 (NODE_INDEX_MAX, LEAF_COUNT_MAX),
             ];
             for (i, lc) in values {
-                assert_eq!(direct_path(i, lc), direct_path_naive(i, lc));
+                assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc));
             }
         }
 
         #[test]
         fn should_fail_for_roots() {
             for (r, lc) in root_range() {
-                assert!(direct_path(r, lc).is_none());
-                assert_eq!(direct_path(r, lc), direct_path_naive(r, lc));
+                assert!(direct_path_unchecked(r, lc).is_none());
+                assert_eq!(direct_path_unchecked(r, lc), direct_path_naive(r, lc));
             }
         }
     }
@@ -431,7 +453,7 @@ mod tests {
         #[test]
         fn should_succeed() {
             for (lc, i) in leaf_count_range_with_node_index().take(10) {
-                assert_eq!(copath(i, lc), copath_naive(i, lc));
+                assert_eq!(copath_unchecked(i, lc), copath_naive(i, lc));
             }
         }
 
@@ -456,8 +478,8 @@ mod tests {
             ]
             .map(|(i, e)| (i, VecDeque::from_iter(e)));
             for (i, expected) in values {
-                assert_eq!(copath(i, lc), copath_naive(i, lc));
-                assert_eq!(copath(i, lc), Some(expected));
+                assert_eq!(copath_unchecked(i, lc), copath_naive(i, lc));
+                assert_eq!(copath_unchecked(i, lc), Some(expected));
             }
         }
 
@@ -472,15 +494,15 @@ mod tests {
                 (NODE_INDEX_MAX, LEAF_COUNT_MAX),
             ];
             for (i, lc) in values {
-                assert_eq!(copath(i, lc), copath_naive(i, lc));
+                assert_eq!(copath_unchecked(i, lc), copath_naive(i, lc));
             }
         }
 
         #[test]
         fn should_fail_for_roots() {
             for (r, lc) in root_range() {
-                assert!(copath(r, lc).is_none());
-                assert_eq!(copath(r, lc), copath_naive(r, lc));
+                assert!(copath_unchecked(r, lc).is_none());
+                assert_eq!(copath_unchecked(r, lc), copath_naive(r, lc));
             }
         }
     }
@@ -493,7 +515,7 @@ mod tests {
             let e = 10;
             for a in level_range(0).take(1 << e) {
                 for b in level_range(0).take(1 << e) {
-                    assert_eq!(common_ancestor(a, b), common_ancestor_naive(a, b));
+                    assert_eq!(common_ancestor_unchecked(a, b), common_ancestor_naive(a, b));
                 }
             }
         }
@@ -502,7 +524,7 @@ mod tests {
         fn should_succeed_at_boundaries() {
             let values = [(0, 2), (0, NODE_INDEX_MAX)];
             for (a, b) in values {
-                assert_eq!(common_ancestor(a, b), common_ancestor_naive(a, b));
+                assert_eq!(common_ancestor_unchecked(a, b), common_ancestor_naive(a, b));
             }
         }
 
@@ -649,7 +671,7 @@ pub mod naive {
             return None;
         }
 
-        let mut path = direct_path(node_index, leaf_count)?;
+        let mut path = direct_path_unchecked(node_index, leaf_count)?;
         path.insert(0, node_index);
         let _ = path.pop_back();
 

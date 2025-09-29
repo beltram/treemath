@@ -27,6 +27,8 @@ jobs:
           - fuzz_target: parent
           - fuzz_target: left_right
           - fuzz_target: sibling
+          - fuzz_target: direct_path
+          - fuzz_target: copath
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly

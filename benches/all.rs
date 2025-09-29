@@ -111,7 +111,7 @@ pub fn direct_path_bench(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("new", lc), &lc, |b, &lc| {
             b.iter_batched(
                 || (rand::random_range(0u32..(lc * 2) - 1), lc),
-                |(idx, lc)| black_box(direct_path(idx, lc)),
+                |(idx, lc)| black_box(direct_path_unchecked(idx, lc)),
                 BatchSize::SmallInput,
             )
         });
@@ -136,7 +136,7 @@ pub fn copath_bench(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("new", lc), &lc, |b, &lc| {
             b.iter_batched(
                 || (rand::random_range(0u32..(lc * 2) - 1), lc),
-                |(idx, lc)| black_box(copath(idx, lc)),
+                |(idx, lc)| black_box(copath_unchecked(idx, lc)),
                 BatchSize::SmallInput,
             )
         });
@@ -164,7 +164,7 @@ pub fn common_ancestor_bench(c: &mut Criterion) {
                     b &= !1;
                     (a, b)
                 },
-                |(a, b)| black_box(common_ancestor(a, b)),
+                |(a, b)| black_box(common_ancestor_unchecked(a, b)),
                 BatchSize::SmallInput,
             )
         });
