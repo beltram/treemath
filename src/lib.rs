@@ -122,7 +122,11 @@ pub const fn children(node_index: u32) -> Option<(u32, u32)> {
     Some((left, right))
 }
 
-pub fn direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
+pub fn direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
+    __direct_path_unchecked(node_index, leaf_count).map(|(a, size)| a[..size].to_vec())
+}
+
+fn __direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 32], usize)> {
     // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
     let mut root = root(leaf_count);
     if node_index == root {
@@ -133,27 +137,27 @@ pub fn direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<VecDequ
 
     let floor = LEVEL_MAX.wrapping_sub(root_level);
     let node_level = level(node_index);
-    let mut path_size = root_level.wrapping_sub(node_level);
-    let mut path = VecDeque::with_capacity(path_size as usize);
+    let path_size = root_level.wrapping_sub(node_level) as usize;
+    let mut path = [0u32; 32];
+    let chunk_size = path_size.wrapping_sub(1);
 
-    path.push_back(root);
-
-    path_size = path_size.wrapping_sub(1);
+    path[chunk_size] = root;
 
     let mask = u32::MAX >> floor;
     let chunk = node_index & mask;
 
-    for _ in 0..path_size {
+    for i in 0..chunk_size {
         let d = ((chunk >> root_level) & 1) == 0;
         root = child_with_direction(root, d, root_level);
         root_level = root_level.wrapping_sub(1);
-        path.push_front(root);
+        let idx = chunk_size.wrapping_sub(1) - i;
+        path[idx] = root;
     }
 
-    Some(path)
+    Some((path, path_size))
 }
 
-pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
+pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
     if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
         return None;
     }
@@ -393,7 +397,7 @@ mod tests {
         #[test]
         fn should_succeed() {
             for (lc, i) in leaf_count_range_with_node_index().take(100_000) {
-                assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc));
+                assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
             }
         }
 
@@ -418,8 +422,8 @@ mod tests {
             ]
             .map(|(i, e)| (i, VecDeque::from_iter(e)));
             for (i, expected) in values {
-                assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc));
-                assert_eq!(direct_path_unchecked(i, lc), Some(expected));
+                assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
+                assert_eq!(direct_path_unchecked(i, lc), Some(expected.into_iter().collect()));
             }
         }
 
@@ -434,7 +438,7 @@ mod tests {
                 (NODE_INDEX_MAX, LEAF_COUNT_MAX),
             ];
             for (i, lc) in values {
-                assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc));
+                assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
             }
         }
 
@@ -442,7 +446,7 @@ mod tests {
         fn should_fail_for_roots() {
             for (r, lc) in root_range() {
                 assert!(direct_path_unchecked(r, lc).is_none());
-                assert_eq!(direct_path_unchecked(r, lc), direct_path_naive(r, lc));
+                assert_eq!(direct_path_unchecked(r, lc), direct_path_naive(r, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
             }
         }
     }
@@ -671,7 +675,7 @@ pub mod naive {
             return None;
         }
 
-        let mut path = direct_path_unchecked(node_index, leaf_count)?;
+        let mut path = direct_path_naive(node_index, leaf_count)?;
         path.insert(0, node_index);
         let _ = path.pop_back();
 
