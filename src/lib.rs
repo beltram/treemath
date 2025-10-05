@@ -1,5 +1,4 @@
 use crate::bounds::{LEAF_COUNT_MAX, LEVEL_MAX, NODE_INDEX_MAX};
-use std::collections::VecDeque;
 
 /// Returns the height of that node in the tree
 #[inline(always)]
@@ -10,13 +9,12 @@ pub const fn level(node_index: u32) -> u8 {
 /// Returns the root node
 #[inline(always)]
 pub const fn root(leaf_count: u32) -> u32 {
-    // leaf_count.wrapping_sub(1); // works only in case leaf_count is a power of 2
     if leaf_count == 0 {
         return 0;
     }
-    let shl = node_width(leaf_count).ilog2();
-    let pow2: u32 = 1 << shl;
-    pow2.wrapping_sub(1)
+    let shl = node_width_unchecked(leaf_count).ilog2();
+    let pow2: u32 = 1u32.overflowing_shl(shl).0;
+    pow2.overflowing_sub(1).0
 }
 
 /// Number of nodes needed to represent a tree with [leaf_count] leaves.
@@ -25,6 +23,12 @@ pub const fn node_width(leaf_count: u32) -> u32 {
     if leaf_count == 0 {
         return 0;
     }
+    // 2*(n - 1) + 1
+    node_width_unchecked(leaf_count)
+}
+
+#[inline(always)]
+const fn node_width_unchecked(leaf_count: u32) -> u32 {
     // 2*(n - 1) + 1
     leaf_count
         .wrapping_sub(1) // since leaf_count is >= 1
@@ -122,11 +126,93 @@ pub const fn children(node_index: u32) -> Option<(u32, u32)> {
     Some((left, right))
 }
 
+#[inline(always)]
+pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
+    if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
+        return None;
+    }
+    direct_path_unchecked(node_index, leaf_count)
+}
+
+#[inline(always)]
 pub fn direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
     __direct_path_unchecked(node_index, leaf_count).map(|(a, size)| a[..size].to_vec())
 }
 
+#[inline(always)]
 fn __direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 32], usize)> {
+    // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
+    let mut root = root(leaf_count);
+    if node_index == root {
+        return None;
+    }
+
+    let mut root_level = level(root);
+
+    let floor = LEVEL_MAX.overflowing_sub(root_level).0;
+    let node_level = level(node_index);
+    let path_size = root_level.overflowing_sub(node_level).0 as usize;
+    let mut path = [0u32; 32];
+    let __path_size = path_size.overflowing_sub(1).0;
+
+    unsafe {
+        *path.get_unchecked_mut(__path_size) = root;
+    }
+
+    let mask = u32::MAX.overflowing_shr(floor as u32).0;
+    let chunk = node_index & mask;
+
+    for i in 0..__path_size {
+        let d = ((chunk.overflowing_shr(root_level as u32).0) & 1) == 0;
+        root = child_with_direction(root, d, root_level);
+        root_level = root_level.overflowing_sub(1).0;
+        let idx = __path_size.overflowing_sub(1).0.overflowing_sub(i).0;
+        unsafe {
+            *path.get_unchecked_mut(idx) = root;
+        }
+    }
+
+    Some((path, path_size))
+}
+
+#[inline(always)]
+pub const fn child_with_direction(node_index: u32, direction: bool, level: u8) -> u32 {
+    let f = 2u32 ^ (1u32.overflowing_shl(direction as u32).0 | 1);
+    let lvl = level.overflowing_sub(1).0;
+    let f = f.overflowing_shl(lvl as u32).0;
+    node_index ^ f
+}
+
+#[inline(always)]
+const fn nephew(node_index: u32, is_left: bool, leaf_count: u32, mut level: u8) -> Option<u32> {
+    if level == 0 {
+        return None;
+    }
+    let Some(parent) = parent_unchecked(node_index, leaf_count) else {
+        return None;
+    };
+    level = level.overflowing_add(1).0;
+    let sibling = child_with_direction(parent, node_index > parent, level);
+    level = level.overflowing_sub(1).0;
+    let nephew = child_with_direction(sibling, is_left, level);
+    Some(nephew)
+}
+
+#[inline(always)]
+pub fn copath(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
+    if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
+        return None;
+    }
+    copath_unchecked(node_index, leaf_count)
+}
+
+#[inline(always)]
+pub fn copath_unchecked(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
+    __copath_unchecked(node_index, leaf_count).map(|(a, size)| a[..size].to_vec())
+}
+
+#[inline(always)]
+fn __copath_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 32], usize)> {
     // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
     let mut root = root(leaf_count);
     if node_index == root {
@@ -138,68 +224,9 @@ fn __direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 32
     let floor = LEVEL_MAX.wrapping_sub(root_level);
     let node_level = level(node_index);
     let path_size = root_level.wrapping_sub(node_level) as usize;
-    let mut path = [0u32; 32];
-    let chunk_size = path_size.wrapping_sub(1);
-
-    path[chunk_size] = root;
-
-    let mask = u32::MAX >> floor;
-    let chunk = node_index & mask;
-
-    for i in 0..chunk_size {
-        let d = ((chunk >> root_level) & 1) == 0;
-        root = child_with_direction(root, d, root_level);
-        root_level = root_level.wrapping_sub(1);
-        let idx = chunk_size.wrapping_sub(1) - i;
-        path[idx] = root;
-    }
-
-    Some((path, path_size))
-}
-
-pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
-    if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
-        return None;
-    }
-    direct_path_unchecked(node_index, leaf_count)
-}
-
-#[inline(always)]
-pub const fn child_with_direction(node_index: u32, direction: bool, level: u8) -> u32 {
-    let f = 2u32 ^ (1u32.wrapping_shl(direction as u32) | 1);
-    let lvl = level.wrapping_sub(1);
-    let f = f.wrapping_shl(lvl as u32);
-    node_index ^ f
-}
-
-#[inline(always)]
-const fn nephew(node_index: u32, is_left: bool, leaf_count: u32, mut level: u8) -> Option<u32> {
-    if level < 1 {
-        return None;
-    }
-    let Some(parent) = parent_unchecked(node_index, leaf_count) else {
-        return None;
-    };
-    level = level.wrapping_add(1);
-    let sibling = child_with_direction(parent, node_index > parent, level);
-    level = level.wrapping_sub(1);
-    let nephew = child_with_direction(sibling, is_left, level);
-    Some(nephew)
-}
-
-pub fn copath_unchecked(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
-    // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
-    let mut root = root(leaf_count);
-    if node_index == root {
-        return None;
-    }
-
-    let mut root_level = level(root);
-
-    let floor = LEVEL_MAX.wrapping_sub(root_level);
-    let node_level = level(node_index);
-    let path_size = root_level.wrapping_sub(node_level).wrapping_sub(1);
-    let mut copath = VecDeque::with_capacity(path_size as usize);
+    // copath is filled from the root (last index) down to the leaf side (index 0)
+    let mut idx = path_size.wrapping_sub(1);
+    let mut copath = [0u32; 32];
 
     let mask = u32::MAX >> floor;
     let chunk = node_index & mask;
@@ -207,29 +234,23 @@ pub fn copath_unchecked(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32
     let b = ((chunk >> root_level) & 1) == 0;
     root = child_with_direction(root, !b, root_level);
     root_level = root_level.wrapping_sub(1);
-    copath.push_front(root);
+    copath[idx] = root;
 
-    for _ in 0..path_size {
+    while idx > 0 {
         let b = ((chunk >> root_level) & 1) == 0;
 
         let Some(nephew) = nephew(root, !b, leaf_count, root_level) else {
             // should never happen because we should bail before the leaf if we compute the path_size right
-            return Some(copath);
+            return Some((copath, path_size));
         };
 
         root = nephew;
         root_level = root_level.wrapping_sub(1);
-        copath.push_front(root);
+        idx -= 1;
+        copath[idx] = root;
     }
 
-    Some(copath)
-}
-
-pub fn copath(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
-    if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
-        return None;
-    }
-    copath_unchecked(node_index, leaf_count)
+    Some((copath, path_size))
 }
 
 #[inline(always)]
@@ -420,7 +441,7 @@ mod tests {
                 (13, vec![11, 7]),
                 (14, vec![13, 11, 7]),
             ]
-            .map(|(i, e)| (i, VecDeque::from_iter(e)));
+            .map(|(i, e)| (i, Vec::from_iter(e)));
             for (i, expected) in values {
                 assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
                 assert_eq!(direct_path_unchecked(i, lc), Some(expected.into_iter().collect()));
@@ -457,7 +478,7 @@ mod tests {
         #[test]
         fn should_succeed() {
             for (lc, i) in leaf_count_range_with_node_index().take(10) {
-                assert_eq!(copath_unchecked(i, lc), copath_naive(i, lc));
+                assert_eq!(copath_unchecked(i, lc), copath_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
             }
         }
 
@@ -480,7 +501,7 @@ mod tests {
                 (13, vec![9, 3]),
                 (14, vec![12, 9, 3]),
             ]
-            .map(|(i, e)| (i, VecDeque::from_iter(e)));
+            .map(|(i, e)| (i, Vec::from_iter(e)));
             for (i, expected) in values {
                 assert_eq!(copath_unchecked(i, lc), copath_naive(i, lc));
                 assert_eq!(copath_unchecked(i, lc), Some(expected));
@@ -652,7 +673,7 @@ pub mod naive {
     }
 
     #[inline(always)]
-    pub fn direct_path_naive(mut node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
+    pub fn direct_path_naive(mut node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
         let root = root_naive(leaf_count);
         if node_index == root {
             return None;
@@ -660,22 +681,19 @@ pub mod naive {
 
         let mut ret = VecDeque::new();
         while node_index != root {
-            match parent_naive(node_index, leaf_count) {
-                Some(parent_idx) => node_index = parent_idx,
-                None => return None,
-            }
+            node_index = parent_naive(node_index, leaf_count)?;
             ret.push_back(node_index);
         }
 
-        Some(ret)
+        Some(ret.into_iter().collect())
     }
 
-    pub fn copath_naive(node_index: u32, leaf_count: u32) -> Option<VecDeque<u32>> {
+    pub fn copath_naive(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
         if node_index == root(leaf_count) {
             return None;
         }
 
-        let mut path = direct_path_naive(node_index, leaf_count)?;
+        let mut path = direct_path_naive(node_index, leaf_count)?.into_iter().collect::<VecDeque<_>>();
         path.insert(0, node_index);
         let _ = path.pop_back();
 
