@@ -330,20 +330,6 @@ mod bits {
         n - n.wrapping_shr(1)
     }
 
-    #[allow(dead_code)]
-    #[inline(always)]
-    pub const fn round_up_power_2(mut n: u32) -> u32 {
-        n -= 1;
-        n |= n.wrapping_shr(1);
-        n |= n.wrapping_shr(2);
-        n |= n.wrapping_shr(4);
-        n |= n.wrapping_shr(8);
-        n |= n.wrapping_shr(16);
-        n |= n.wrapping_shr(32);
-        n += 1;
-        n
-    }
-
     #[cfg(test)]
     mod tests {
         use super::*;
