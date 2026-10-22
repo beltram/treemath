@@ -131,16 +131,26 @@ pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
     if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
         return None;
     }
-    direct_path_unchecked(node_index, leaf_count)
+    // SAFETY: bounds checked above
+    unsafe { direct_path_unchecked(node_index, leaf_count) }
 }
 
+/// # Safety
+///
+/// `leaf_count` must be <= [LEAF_COUNT_MAX] and `node_index` must be <= `2 * (leaf_count - 1)`,
+/// otherwise this writes out of bounds of a stack array.
 #[inline(always)]
-pub fn direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
-    __direct_path_unchecked(node_index, leaf_count).map(|(a, size)| a[..size].to_vec())
+pub unsafe fn direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
+    debug_assert!(leaf_count <= LEAF_COUNT_MAX && node_index <= leaf_count.saturating_sub(1) * 2);
+    // SAFETY: forwarded to the caller
+    unsafe { __direct_path_unchecked(node_index, leaf_count) }.map(|(a, size)| a[..size].to_vec())
 }
 
+/// # Safety
+///
+/// See [direct_path_unchecked]
 #[inline(always)]
-fn __direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 32], usize)> {
+unsafe fn __direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 32], usize)> {
     // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
     let mut root = root(leaf_count);
     if node_index == root {
@@ -154,7 +164,9 @@ fn __direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 32
     let path_size = root_level.overflowing_sub(node_level).0 as usize;
     let mut path = [0u32; 32];
     let __path_size = path_size.overflowing_sub(1).0;
+    debug_assert!((1..=32).contains(&path_size), "path size out of bounds");
 
+    // SAFETY: valid inputs guarantee 1 <= path_size <= 32, so every index written is < 32
     unsafe {
         *path.get_unchecked_mut(__path_size) = root;
     }
@@ -203,16 +215,26 @@ pub fn copath(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
     if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
         return None;
     }
-    copath_unchecked(node_index, leaf_count)
+    // SAFETY: bounds checked above
+    unsafe { copath_unchecked(node_index, leaf_count) }
 }
 
+/// # Safety
+///
+/// `leaf_count` must be <= [LEAF_COUNT_MAX] and `node_index` must be <= `2 * (leaf_count - 1)`,
+/// otherwise this indexes out of bounds of a stack array.
 #[inline(always)]
-pub fn copath_unchecked(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
-    __copath_unchecked(node_index, leaf_count).map(|(a, size)| a[..size].to_vec())
+pub unsafe fn copath_unchecked(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
+    debug_assert!(leaf_count <= LEAF_COUNT_MAX && node_index <= leaf_count.saturating_sub(1) * 2);
+    // SAFETY: forwarded to the caller
+    unsafe { __copath_unchecked(node_index, leaf_count) }.map(|(a, size)| a[..size].to_vec())
 }
 
+/// # Safety
+///
+/// See [copath_unchecked]
 #[inline(always)]
-fn __copath_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 32], usize)> {
+unsafe fn __copath_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 32], usize)> {
     // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
     let mut root = root(leaf_count);
     if node_index == root {
@@ -226,6 +248,7 @@ fn __copath_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 32], us
     let path_size = root_level.wrapping_sub(node_level) as usize;
     // copath is filled from the root (last index) down to the leaf side (index 0)
     let mut idx = path_size.wrapping_sub(1);
+    debug_assert!((1..=32).contains(&path_size), "path size out of bounds");
     let mut copath = [0u32; 32];
 
     let mask = u32::MAX >> floor;
@@ -418,7 +441,7 @@ mod tests {
         #[test]
         fn should_succeed() {
             for (lc, i) in leaf_count_range_with_node_index().take(100_000) {
-                assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
+                assert_eq!(unsafe { direct_path_unchecked(i, lc) }, direct_path_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
             }
         }
 
@@ -443,8 +466,8 @@ mod tests {
             ]
             .map(|(i, e)| (i, Vec::from_iter(e)));
             for (i, expected) in values {
-                assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
-                assert_eq!(direct_path_unchecked(i, lc), Some(expected.into_iter().collect()));
+                assert_eq!(unsafe { direct_path_unchecked(i, lc) }, direct_path_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
+                assert_eq!(unsafe { direct_path_unchecked(i, lc) }, Some(expected.into_iter().collect()));
             }
         }
 
@@ -459,15 +482,15 @@ mod tests {
                 (NODE_INDEX_MAX, LEAF_COUNT_MAX),
             ];
             for (i, lc) in values {
-                assert_eq!(direct_path_unchecked(i, lc), direct_path_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
+                assert_eq!(unsafe { direct_path_unchecked(i, lc) }, direct_path_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
             }
         }
 
         #[test]
         fn should_fail_for_roots() {
             for (r, lc) in root_range() {
-                assert!(direct_path_unchecked(r, lc).is_none());
-                assert_eq!(direct_path_unchecked(r, lc), direct_path_naive(r, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
+                assert!(unsafe { direct_path_unchecked(r, lc) }.is_none());
+                assert_eq!(unsafe { direct_path_unchecked(r, lc) }, direct_path_naive(r, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
             }
         }
     }
@@ -478,7 +501,7 @@ mod tests {
         #[test]
         fn should_succeed() {
             for (lc, i) in leaf_count_range_with_node_index().take(10) {
-                assert_eq!(copath_unchecked(i, lc), copath_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
+                assert_eq!(unsafe { copath_unchecked(i, lc) }, copath_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
             }
         }
 
@@ -503,8 +526,8 @@ mod tests {
             ]
             .map(|(i, e)| (i, Vec::from_iter(e)));
             for (i, expected) in values {
-                assert_eq!(copath_unchecked(i, lc), copath_naive(i, lc));
-                assert_eq!(copath_unchecked(i, lc), Some(expected));
+                assert_eq!(unsafe { copath_unchecked(i, lc) }, copath_naive(i, lc));
+                assert_eq!(unsafe { copath_unchecked(i, lc) }, Some(expected));
             }
         }
 
@@ -519,15 +542,15 @@ mod tests {
                 (NODE_INDEX_MAX, LEAF_COUNT_MAX),
             ];
             for (i, lc) in values {
-                assert_eq!(copath_unchecked(i, lc), copath_naive(i, lc));
+                assert_eq!(unsafe { copath_unchecked(i, lc) }, copath_naive(i, lc));
             }
         }
 
         #[test]
         fn should_fail_for_roots() {
             for (r, lc) in root_range() {
-                assert!(copath_unchecked(r, lc).is_none());
-                assert_eq!(copath_unchecked(r, lc), copath_naive(r, lc));
+                assert!(unsafe { copath_unchecked(r, lc) }.is_none());
+                assert_eq!(unsafe { copath_unchecked(r, lc) }, copath_naive(r, lc));
             }
         }
     }
