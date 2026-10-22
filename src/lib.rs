@@ -114,7 +114,7 @@ pub const fn right(node_index: u32) -> Option<u32> {
 /// Returns (left, right)
 #[inline(always)]
 pub const fn children(node_index: u32) -> Option<(u32, u32)> {
-    if node_index.is_multiple_of(2) {
+    if node_index > NODE_INDEX_MAX || node_index.is_multiple_of(2) {
         return None;
     }
     let lzb = bits::last_zero_bit(node_index);
@@ -301,7 +301,7 @@ mod bits {
 
     #[inline(always)]
     pub const fn last_zero_bit(n: u32) -> u32 {
-        last_set_bit(n + 1)
+        last_set_bit(n.wrapping_add(1))
     }
 
     #[inline(always)]
@@ -600,7 +600,19 @@ mod tests {
             for node_index in values {
                 assert_eq!(left_unchecked(node_index), left_naive(node_index));
                 assert_eq!(right_unchecked(node_index), right_naive(node_index));
+                assert_eq!(children(node_index), left_naive(node_index).zip(right_naive(node_index)));
             }
+        }
+
+        #[test]
+        fn should_not_overflow_for_u32_max() {
+            assert!(left(u32::MAX).is_none());
+            assert!(right(u32::MAX).is_none());
+            assert!(children(u32::MAX).is_none());
+            let _ = left_unchecked(u32::MAX);
+            let _ = right_unchecked(u32::MAX);
+            let _ = parent_unchecked(u32::MAX, LEAF_COUNT_MAX);
+            let _ = sibling_unchecked(u32::MAX, LEAF_COUNT_MAX);
         }
     }
 }
