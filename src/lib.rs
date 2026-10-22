@@ -1,4 +1,17 @@
+//! Arithmetics for perfect binary trees in a flat in-order representation.
+//!
+//! Every function taking a `leaf_count` assumes it is a power of 2 (as in RFC 9420), other values
+//! describe trees which are not perfect and yield meaningless results. Checked functions return
+//! [None] for them, `*_unchecked` ones leave it to the caller and only `debug_assert!`.
+
 use crate::bounds::{LEAF_COUNT_MAX, LEVEL_MAX, NODE_INDEX_MAX};
+
+/// Whether `leaf_count` describes a perfect tree within bounds and `node_index` belongs to it
+#[inline(always)]
+const fn is_in_tree(node_index: u32, leaf_count: u32) -> bool {
+    // `leaf_count - 1` cannot underflow since a power of 2 is >= 1
+    leaf_count <= LEAF_COUNT_MAX && leaf_count.is_power_of_two() && node_index <= (leaf_count - 1) * 2
+}
 
 /// Returns the height of that node in the tree
 #[inline(always)]
@@ -6,7 +19,7 @@ pub const fn level(node_index: u32) -> u8 {
     node_index.trailing_ones() as u8
 }
 
-/// Returns the root node
+/// Returns the root node. `leaf_count` must be a power of 2, in which case this is `leaf_count - 1`
 #[inline(always)]
 pub const fn root(leaf_count: u32) -> u32 {
     if leaf_count == 0 {
@@ -39,16 +52,17 @@ const fn node_width_unchecked(leaf_count: u32) -> u32 {
 /// Get the parent of a node, return [None] if the node is the root
 #[inline(always)]
 pub const fn parent_unchecked(node_index: u32, leaf_count: u32) -> Option<u32> {
+    debug_assert!(leaf_count.is_power_of_two(), "leaf_count must be a power of 2");
     if node_index == root(leaf_count) {
         return None;
     }
     Some((bits::last_zero_bit(node_index) | node_index) & !bits::last_zero_bit(node_index).wrapping_shl(1))
 }
 
-/// Get the parent of a node, return [None] if the node is the root
+/// Get the parent of a node, return [None] if the node is the root or not in a perfect tree of `leaf_count` leaves
 #[inline(always)]
 pub const fn parent(node_index: u32, leaf_count: u32) -> Option<u32> {
-    if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
+    if !is_in_tree(node_index, leaf_count) {
         return None;
     }
     parent_unchecked(node_index, leaf_count)
@@ -66,10 +80,10 @@ pub const fn sibling_unchecked(node_index: u32, leaf_count: u32) -> Option<u32> 
     Some(sibling as u32)
 }
 
-/// Given a node, return the left/right child of his parent, return [None] when root
+/// Given a node, return the left/right child of his parent, return [None] when root or not in a perfect tree of `leaf_count` leaves
 #[inline(always)]
 pub const fn sibling(node_index: u32, leaf_count: u32) -> Option<u32> {
-    if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
+    if !is_in_tree(node_index, leaf_count) {
         return None;
     }
     sibling_unchecked(node_index, leaf_count)
@@ -126,9 +140,10 @@ pub const fn children(node_index: u32) -> Option<(u32, u32)> {
     Some((left, right))
 }
 
+/// Returns [None] when root or not in a perfect tree of `leaf_count` leaves
 #[inline(always)]
 pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
-    if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
+    if !is_in_tree(node_index, leaf_count) {
         return None;
     }
     // SAFETY: bounds checked above
@@ -137,11 +152,11 @@ pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
 
 /// # Safety
 ///
-/// `leaf_count` must be <= [LEAF_COUNT_MAX] and `node_index` must be <= `2 * (leaf_count - 1)`,
+/// `leaf_count` must be a power of 2 <= [LEAF_COUNT_MAX] and `node_index` must be <= `2 * (leaf_count - 1)`,
 /// otherwise this writes out of bounds of a stack array.
 #[inline(always)]
 pub unsafe fn direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
-    debug_assert!(leaf_count <= LEAF_COUNT_MAX && node_index <= leaf_count.saturating_sub(1) * 2);
+    debug_assert!(is_in_tree(node_index, leaf_count));
     // SAFETY: forwarded to the caller
     unsafe { __direct_path_unchecked(node_index, leaf_count) }.map(|(a, size)| a[..size].to_vec())
 }
@@ -210,9 +225,10 @@ const fn nephew(node_index: u32, is_left: bool, leaf_count: u32, mut level: u8) 
     Some(nephew)
 }
 
+/// Returns [None] when root or not in a perfect tree of `leaf_count` leaves
 #[inline(always)]
 pub fn copath(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
-    if leaf_count > LEAF_COUNT_MAX || node_index > (leaf_count.saturating_sub(1) * 2) {
+    if !is_in_tree(node_index, leaf_count) {
         return None;
     }
     // SAFETY: bounds checked above
@@ -221,11 +237,11 @@ pub fn copath(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
 
 /// # Safety
 ///
-/// `leaf_count` must be <= [LEAF_COUNT_MAX] and `node_index` must be <= `2 * (leaf_count - 1)`,
+/// `leaf_count` must be a power of 2 <= [LEAF_COUNT_MAX] and `node_index` must be <= `2 * (leaf_count - 1)`,
 /// otherwise this indexes out of bounds of a stack array.
 #[inline(always)]
 pub unsafe fn copath_unchecked(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
-    debug_assert!(leaf_count <= LEAF_COUNT_MAX && node_index <= leaf_count.saturating_sub(1) * 2);
+    debug_assert!(is_in_tree(node_index, leaf_count));
     // SAFETY: forwarded to the caller
     unsafe { __copath_unchecked(node_index, leaf_count) }.map(|(a, size)| a[..size].to_vec())
 }
@@ -580,6 +596,29 @@ mod tests {
             let lower = (1 << level) - 1;
             let step = 1 << (level + 1);
             (lower..=NODE_INDEX_MAX).step_by(step).dedup()
+        }
+    }
+
+    mod not_perfect_tree {
+        use super::*;
+
+        #[test]
+        fn checked_should_fail() {
+            for lc in [0, 3, 5, 6, 7, 9, 1000, LEAF_COUNT_MAX - 1, LEAF_COUNT_MAX + 1, u32::MAX] {
+                for i in [0, lc.saturating_sub(1), lc.saturating_sub(1).saturating_mul(2)] {
+                    assert!(parent(i, lc).is_none());
+                    assert!(sibling(i, lc).is_none());
+                    assert!(direct_path(i, lc).is_none());
+                    assert!(copath(i, lc).is_none());
+                }
+            }
+        }
+
+        #[test]
+        #[cfg(debug_assertions)]
+        #[should_panic]
+        fn unchecked_should_debug_assert() {
+            let _ = unsafe { direct_path_unchecked(4, 3) };
         }
     }
 
