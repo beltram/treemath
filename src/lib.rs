@@ -502,7 +502,7 @@ mod tests {
 
         #[test]
         fn should_succeed() {
-            for (lc, i) in leaf_count_range_with_node_index().take(10) {
+            for (lc, i) in leaf_count_range_with_node_index().take(100_000) {
                 assert_eq!(unsafe { copath_unchecked(i, lc) }, copath_naive(i, lc).map(|v| v.into_iter().collect::<Vec<_>>()));
             }
         }
