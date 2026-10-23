@@ -202,11 +202,9 @@ pub unsafe fn copath_unchecked(node_index: u32, leaf_count: u32) -> Option<Vec<u
 
 #[inline(always)]
 pub const fn common_ancestor_unchecked(node_index: u32, other: u32) -> u32 {
-    if node_index == other {
-        return node_index;
-    }
-    let d = bits::most_significant_bit(node_index ^ other);
-    (node_index & !d) | (d.wrapping_sub(1))
+    // all ones from the highest differing bit down, 0 when both are equal (a u32 shift by 32 would overflow)
+    let m = ((u32::MAX as u64) >> (node_index ^ other).leading_zeros()) as u32;
+    (node_index & !m) | (m >> 1)
 }
 
 #[inline(always)]
@@ -226,32 +224,6 @@ mod bits {
     #[inline(always)]
     pub const fn last_zero_bit(n: u32) -> u32 {
         last_set_bit(n.wrapping_add(1))
-    }
-
-    #[inline(always)]
-    pub const fn most_significant_bit(mut n: u32) -> u32 {
-        n |= n.wrapping_shr(1);
-        n |= n.wrapping_shr(2);
-        n |= n.wrapping_shr(4);
-        n |= n.wrapping_shr(8);
-        n |= n.wrapping_shr(16);
-        n - n.wrapping_shr(1)
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-
-        #[test]
-        fn msb_should_succeed() {
-            assert_eq!(1, most_significant_bit(1));
-            assert_eq!(2, most_significant_bit(2));
-            assert_eq!(2, most_significant_bit(3));
-            assert_eq!(4, most_significant_bit(4));
-            assert_eq!(4, most_significant_bit(5));
-            assert_eq!(4, most_significant_bit(6));
-            assert_eq!(1 << 31, most_significant_bit(u32::MAX));
-        }
     }
 }
 
