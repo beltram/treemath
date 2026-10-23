@@ -71,13 +71,12 @@ pub const fn parent(node_index: u32, leaf_count: u32) -> Option<u32> {
 /// Given a node, return the left/right child of his parent, return [None] when root
 #[inline(always)]
 pub const fn sibling_unchecked(node_index: u32, leaf_count: u32) -> Option<u32> {
-    let Some(parent) = parent_unchecked(node_index, leaf_count) else {
+    debug_assert!(leaf_count.is_power_of_two(), "leaf_count must be a power of 2");
+    if node_index == root(leaf_count) {
         return None;
-    };
-    let parent = parent as isize;
-    let d = parent.overflowing_sub(node_index as isize).0;
-    let sibling = parent.overflowing_add(d).0;
-    Some(sibling as u32)
+    }
+    // a node at level k and its sibling only differ by bit k + 1
+    Some(node_index ^ bits::last_zero_bit(node_index).wrapping_shl(1))
 }
 
 /// Given a node, return the left/right child of his parent, return [None] when root or not in a perfect tree of `leaf_count` leaves
@@ -314,6 +313,40 @@ mod tests {
         fn should_succeed_at_boundaries() {
             assert!(parent_unchecked(NODE_INDEX_MAX, LEAF_COUNT_MAX).is_some());
             assert_eq!(parent_unchecked(NODE_INDEX_MAX, LEAF_COUNT_MAX), parent_naive(NODE_INDEX_MAX, LEAF_COUNT_MAX));
+        }
+    }
+
+    mod sibling {
+        use super::*;
+
+        #[test]
+        fn should_succeed() {
+            for (lc, i) in leaf_count_range_with_node_index().take(100_000) {
+                assert_eq!(sibling_unchecked(i, lc), sibling_naive(i, lc));
+            }
+        }
+
+        #[test]
+        fn should_succeed_at_boundaries() {
+            let values = [
+                (0, 1),
+                (0, 2),
+                (2, 2),
+                (NODE_INDEX_MAX - 2, LEAF_COUNT_MAX),
+                (NODE_INDEX_MAX - 1, LEAF_COUNT_MAX),
+                (NODE_INDEX_MAX, LEAF_COUNT_MAX),
+                (ROOT_MAX, LEAF_COUNT_MAX),
+            ];
+            for (i, lc) in values {
+                assert_eq!(sibling_unchecked(i, lc), sibling_naive(i, lc));
+            }
+        }
+
+        #[test]
+        fn should_fail_for_roots() {
+            for (r, lc) in root_range() {
+                assert!(sibling_unchecked(r, lc).is_none());
+            }
         }
     }
 
