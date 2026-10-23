@@ -157,49 +157,13 @@ pub fn direct_path(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
 #[inline(always)]
 pub unsafe fn direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
     debug_assert!(is_in_tree(node_index, leaf_count));
-    // SAFETY: forwarded to the caller
-    unsafe { __direct_path_unchecked(node_index, leaf_count) }.map(|(a, size)| a[..size].to_vec())
-}
-
-/// # Safety
-///
-/// See [direct_path_unchecked]
-#[inline(always)]
-unsafe fn __direct_path_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 32], usize)> {
-    // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
-    let mut root = root(leaf_count);
-    if node_index == root {
+    if node_index == root(leaf_count) {
         return None;
     }
-
-    let mut root_level = level(root);
-
-    let floor = LEVEL_MAX.overflowing_sub(root_level).0;
-    let node_level = level(node_index);
-    let path_size = root_level.overflowing_sub(node_level).0 as usize;
-    let mut path = [0u32; 32];
-    let __path_size = path_size.overflowing_sub(1).0;
-    debug_assert!((1..=32).contains(&path_size), "path size out of bounds");
-
-    // SAFETY: valid inputs guarantee 1 <= path_size <= 32, so every index written is < 32
-    unsafe {
-        *path.get_unchecked_mut(__path_size) = root;
-    }
-
-    let mask = u32::MAX.overflowing_shr(floor as u32).0;
-    let chunk = node_index & mask;
-
-    for i in 0..__path_size {
-        let d = ((chunk.overflowing_shr(root_level as u32).0) & 1) == 0;
-        root = child_with_direction(root, d, root_level);
-        root_level = root_level.overflowing_sub(1).0;
-        let idx = __path_size.overflowing_sub(1).0.overflowing_sub(i).0;
-        unsafe {
-            *path.get_unchecked_mut(idx) = root;
-        }
-    }
-
-    Some((path, path_size))
+    // the ancestor at level j keeps the node's bits above j, clears bit j and sets the j lowest bits
+    let root_level = leaf_count.trailing_zeros();
+    let node_level = level(node_index) as u32;
+    Some((node_level + 1..root_level + 1).map(|j| (node_index | ((1 << j) - 1)) & !(1 << j)).collect())
 }
 
 #[inline(always)]
