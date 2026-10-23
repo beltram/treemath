@@ -4,7 +4,7 @@
 //! describe trees which are not perfect and yield meaningless results. Checked functions return
 //! [None] for them, `*_unchecked` ones leave it to the caller and only `debug_assert!`.
 
-use crate::bounds::{LEAF_COUNT_MAX, LEVEL_MAX, NODE_INDEX_MAX};
+use crate::bounds::{LEAF_COUNT_MAX, NODE_INDEX_MAX};
 
 /// Whether `leaf_count` describes a perfect tree within bounds and `node_index` belongs to it
 #[inline(always)]
@@ -191,47 +191,13 @@ pub fn copath(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
 #[inline(always)]
 pub unsafe fn copath_unchecked(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
     debug_assert!(is_in_tree(node_index, leaf_count));
-    // SAFETY: forwarded to the caller
-    unsafe { __copath_unchecked(node_index, leaf_count) }.map(|(a, size)| a[..size].to_vec())
-}
-
-/// # Safety
-///
-/// See [copath_unchecked]
-#[inline(always)]
-unsafe fn __copath_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 32], usize)> {
-    // see https://mmapped.blog/posts/22-flat-in-order-trees.html#sec-addressing
-    let mut root = root(leaf_count);
-    if node_index == root {
+    if node_index == root(leaf_count) {
         return None;
     }
-
-    let mut root_level = level(root);
-
-    let floor = LEVEL_MAX.overflowing_sub(root_level).0;
-    let node_level = level(node_index);
-    let path_size = root_level.overflowing_sub(node_level).0 as usize;
-    debug_assert!((1..=32).contains(&path_size), "path size out of bounds");
-    let mut copath = [0u32; 32];
-
-    let mask = u32::MAX.overflowing_shr(floor as u32).0;
-    let chunk = node_index & mask;
-
-    // walk down the direct path from the root, the copath being the other child at each step.
-    // It is filled from the root (last index) down to the leaf side (index 0)
-    let mut idx = path_size;
-    while idx > 0 {
-        idx = idx.overflowing_sub(1).0;
-        let d = ((chunk.overflowing_shr(root_level as u32).0) & 1) == 0;
-        // SAFETY: valid inputs guarantee path_size <= 32, so idx < 32
-        unsafe {
-            *copath.get_unchecked_mut(idx) = child_with_direction(root, !d, root_level);
-        }
-        root = child_with_direction(root, d, root_level);
-        root_level = root_level.overflowing_sub(1).0;
-    }
-
-    Some((copath, path_size))
+    // sibling of the ancestor at level j (see direct_path_unchecked), they only differ by bit j + 1
+    let root_level = leaf_count.trailing_zeros();
+    let node_level = level(node_index) as u32;
+    Some((node_level..root_level).map(|j| ((node_index | ((1 << j) - 1)) & !(1 << j)) ^ (2 << j)).collect())
 }
 
 #[inline(always)]
