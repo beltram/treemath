@@ -210,21 +210,6 @@ pub const fn child_with_direction(node_index: u32, direction: bool, level: u8) -
     node_index ^ f
 }
 
-#[inline(always)]
-const fn nephew(node_index: u32, is_left: bool, leaf_count: u32, mut level: u8) -> Option<u32> {
-    if level == 0 {
-        return None;
-    }
-    let Some(parent) = parent_unchecked(node_index, leaf_count) else {
-        return None;
-    };
-    level = level.overflowing_add(1).0;
-    let sibling = child_with_direction(parent, node_index > parent, level);
-    level = level.overflowing_sub(1).0;
-    let nephew = child_with_direction(sibling, is_left, level);
-    Some(nephew)
-}
-
 /// Returns [None] when root or not in a perfect tree of `leaf_count` leaves
 #[inline(always)]
 pub fn copath(node_index: u32, leaf_count: u32) -> Option<Vec<u32>> {
@@ -259,34 +244,27 @@ unsafe fn __copath_unchecked(node_index: u32, leaf_count: u32) -> Option<([u32; 
 
     let mut root_level = level(root);
 
-    let floor = LEVEL_MAX.wrapping_sub(root_level);
+    let floor = LEVEL_MAX.overflowing_sub(root_level).0;
     let node_level = level(node_index);
-    let path_size = root_level.wrapping_sub(node_level) as usize;
-    // copath is filled from the root (last index) down to the leaf side (index 0)
-    let mut idx = path_size.wrapping_sub(1);
+    let path_size = root_level.overflowing_sub(node_level).0 as usize;
     debug_assert!((1..=32).contains(&path_size), "path size out of bounds");
     let mut copath = [0u32; 32];
 
-    let mask = u32::MAX >> floor;
+    let mask = u32::MAX.overflowing_shr(floor as u32).0;
     let chunk = node_index & mask;
 
-    let b = ((chunk >> root_level) & 1) == 0;
-    root = child_with_direction(root, !b, root_level);
-    root_level = root_level.wrapping_sub(1);
-    copath[idx] = root;
-
+    // walk down the direct path from the root, the copath being the other child at each step.
+    // It is filled from the root (last index) down to the leaf side (index 0)
+    let mut idx = path_size;
     while idx > 0 {
-        let b = ((chunk >> root_level) & 1) == 0;
-
-        let Some(nephew) = nephew(root, !b, leaf_count, root_level) else {
-            // should never happen because we should bail before the leaf if we compute the path_size right
-            return Some((copath, path_size));
-        };
-
-        root = nephew;
-        root_level = root_level.wrapping_sub(1);
-        idx -= 1;
-        copath[idx] = root;
+        idx = idx.overflowing_sub(1).0;
+        let d = ((chunk.overflowing_shr(root_level as u32).0) & 1) == 0;
+        // SAFETY: valid inputs guarantee path_size <= 32, so idx < 32
+        unsafe {
+            *copath.get_unchecked_mut(idx) = child_with_direction(root, !d, root_level);
+        }
+        root = child_with_direction(root, d, root_level);
+        root_level = root_level.overflowing_sub(1).0;
     }
 
     Some((copath, path_size))
